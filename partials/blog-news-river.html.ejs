@@ -1,0 +1,15 @@
+<div>
+    <a href="<%- feedUrl %>"><img src="/img/rss_button.gif" align="right" width="50"/></a>
+    <%
+    for (var docno = 0; docno < documents.length; docno++) {
+        var doc = documents[docno];
+        %>
+        <span>
+            <!-- add teaser thumbnail -->
+            <a href="/<%= doc.renderedFileName %>"><h2><%= doc.frontmatter.yaml.title %></h2></a>
+            <span><%= doc.frontmatter.yaml.teaser %> (<%= doc.frontmatter.yaml.publicationDate %>)</span>
+        </span>
+        <%
+    }
+    %>
+</div>

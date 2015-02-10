@@ -1,0 +1,20 @@
+{
+  "author": {
+    "name": "David Herron",
+    "email": "david@davidherron.com",
+    "url": "http://davidherron.com"
+  },
+  "name": "akashacms-blog-podcast",
+  "description": "A plugin for AkashaCMS to create blogs & podcasts within a site",
+  "homepage": "https://github.com/robogeek/akashacms-blog-podcast",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/robogeek/akashacms-blog-podcast.git"
+  },
+  "version": "0.1.1",
+  "engines": {
+    "node": ">=0.10.1"
+  },
+  "dependencies": {
+  }
+}
