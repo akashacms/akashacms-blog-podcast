@@ -45,7 +45,13 @@ module.exports.mahabhuta = [
 		var elements = [];
 		$('blog-news-river').each(function(i, elem) { elements.push(elem); });
 		async.eachSeries(elements, function(element, next) {
-			console.log(element.name +' '+ metadata.blogtag);
+			if (! metadata.blogtag) {
+				next(new Error("no blogtag"));
+			} else if (! config.blogPodcast.hasOwnProperty(metadata.blogtag)) {
+				next(new Error("no blogPodcast item for "+ metadata.blogtag));
+			}
+			
+			// console.log(element.name +' '+ metadata.blogtag);
             
             var blogcfg = config.blogPodcast[metadata.blogtag];
             var documents = akasha.findMatchingDocuments(config, blogcfg.matchers);
