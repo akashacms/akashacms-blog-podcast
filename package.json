@@ -6,10 +6,10 @@
   },
   "name": "akashacms-blog-podcast",
   "description": "A plugin for AkashaCMS to create blogs & podcasts within a site",
-  "homepage": "https://github.com/robogeek/akashacms-blog-podcast",
+  "homepage": "http://akashacms.com/plugins/blog-podcast.html",
   "repository": {
     "type": "git",
-    "url": "git://github.com/robogeek/akashacms-blog-podcast.git"
+    "url": "git://github.com/akashacms/akashacms-blog-podcast.git"
   },
   "version": "0.1.1",
   "engines": {
