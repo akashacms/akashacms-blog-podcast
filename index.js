@@ -39,11 +39,38 @@ module.exports.config = function(_akasha, _config) {
 	return module.exports;
 };
 
+var findBlogDocs = function(config, metadata, blogcfg) {
+	var documents = akasha.findMatchingDocuments(config, blogcfg.matchers);
+	
+	documents.sort(function(a, b) {
+		var aPublicationDate = Date.parse(
+				a.frontmatter.yaml.publicationDate
+			  ? a.frontmatter.yaml.publicationDate
+			  : a.stat.mtime
+		);
+		var bPublicationDate = Date.parse(
+				b.frontmatter.yaml.publicationDate
+			  ? b.frontmatter.yaml.publicationDate
+			  : b.stat.mtime
+		);
+		if (aPublicationDate < bPublicationDate) return -1;
+		else if (aPublicationDate === bPublicationDate) return 0;
+		else return 1;
+	});
+	documents.reverse();
+	
+	return documents;
+};
 
 module.exports.mahabhuta = [
 	function($, metadata, dirty, done) {
 		var elements = [];
+		var documents, blogcfg;
 		$('blog-news-river').each(function(i, elem) { elements.push(elem); });
+		if (elements.length > 0) {
+			blogcfg = config.blogPodcast[metadata.blogtag];
+			documents = findBlogDocs(config, metadata, blogcfg);
+		}
 		async.eachSeries(elements, function(element, next) {
 			if (! metadata.blogtag) {
 				next(new Error("no blogtag"));
@@ -52,26 +79,6 @@ module.exports.mahabhuta = [
 			}
 			
 			// console.log(element.name +' '+ metadata.blogtag);
-            
-            var blogcfg = config.blogPodcast[metadata.blogtag];
-            var documents = akasha.findMatchingDocuments(config, blogcfg.matchers);
-            
-            documents.sort(function(a, b) {
-                var aPublicationDate = Date.parse(
-                        a.frontmatter.yaml.publicationDate
-                      ? a.frontmatter.yaml.publicationDate
-                      : a.stat.mtime
-                );
-                var bPublicationDate = Date.parse(
-                        b.frontmatter.yaml.publicationDate
-                      ? b.frontmatter.yaml.publicationDate
-                      : b.stat.mtime
-                );
-                if (aPublicationDate < bPublicationDate) return -1;
-                else if (aPublicationDate === bPublicationDate) return 0;
-                else return 1;
-            });
-            documents.reverse();
             
             var rssitems = [];
             for (var q = 0; q < documents.length; q++) {
@@ -110,6 +117,53 @@ module.exports.mahabhuta = [
         function(err) {
 			if (err) done(err);
 			else done();
+		});
+    },
+	
+	function($, metadata, dirty, done) {
+		var elements = [];
+		var documents;
+		akasha.readDocumentEntry(config, metadata.documentPath, function(err, docEntry) {
+			$('blog-next-prev').each(function(i, elem) { elements.push(elem); });
+			if (elements.length > 0) {
+				blogcfg = config.blogPodcast[metadata.blogtag];
+				documents = findBlogDocs(config, metadata, blogcfg);
+			}
+			async.eachSeries(elements, function(element, next) {
+				// what's the current document
+				// find it within documents
+				var docIndex = -1;
+				for (var j = 0; j < documents.length; j++) {
+					if (documents[j].path === docEntry.path) {
+						docIndex = j;
+					}
+				}
+				if (docIndex >= 0) {
+					var prevDoc = docIndex === 0 ? documents[documents.length - 1] : documents[docIndex - 1];
+					var nextDoc = docIndex === documents.length - 1 ? documents[0] : documents[docIndex + 1];
+					akasha.partial('blog-next-prev.html.ejs', {
+						prevDoc: prevDoc, nextDoc: nextDoc, thisDoc: docEntry, documents: documents
+					}, function(err, html) {
+						if (err) next(err);
+						else {
+							$(element).replaceWith(html);
+							next();
+						}
+					});
+				} else {
+					next(new Error('did not find document in blog'));
+				}
+				// prevDoc =
+				// nextDoc =
+				// akasha.partial('blog-next-prev.html.ejs', {
+				//		prevDoc: prevDoc, nextDoc: nextDoc
+				// })
+				// next();
+			},
+			function(err) {
+				if (err) done(err);
+				else done();
+			});
 		});
     }
 ];
