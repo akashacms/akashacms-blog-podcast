@@ -40,7 +40,7 @@ module.exports.config = function(_akasha, _config) {
 };
 
 var findBlogDocs = function(config, metadata, blogcfg) {
-	var documents = akasha.findMatchingDocuments(config, blogcfg.matchers);
+	var documents = akasha.findMatchingDocuments(blogcfg.matchers);
 	
 	documents.sort(function(a, b) {
 		var aPublicationDate = Date.parse(
@@ -94,7 +94,7 @@ module.exports.mahabhuta = [
             }
 			
             var feedRenderTo = blogcfg.rssurl;
-            akasha.generateRSS(config, blogcfg.rss, {
+            akasha.generateRSS(blogcfg.rss, {
                     feed_url: config.root_url + feedRenderTo,
                     pubDate: new Date()
                 },
@@ -123,7 +123,7 @@ module.exports.mahabhuta = [
 	function($, metadata, dirty, done) {
 		var elements = [];
 		var documents;
-		akasha.readDocumentEntry(config, metadata.documentPath, function(err, docEntry) {
+		akasha.readDocumentEntry(metadata.documentPath, function(err, docEntry) {
 			$('blog-next-prev').each(function(i, elem) { elements.push(elem); });
 			if (elements.length > 0) {
 				blogcfg = config.blogPodcast[metadata.blogtag];
