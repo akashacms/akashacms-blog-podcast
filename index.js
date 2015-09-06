@@ -69,7 +69,12 @@ module.exports.mahabhuta = [
 		$('blog-news-river').each(function(i, elem) { elements.push(elem); });
 		if (elements.length > 0) {
 			blogcfg = config.blogPodcast[metadata.blogtag];
-			documents = findBlogDocs(config, metadata, blogcfg);
+			if (!blogcfg) {
+				return done(new Error('No blog configuration found for blogtag '+ metadata.blogtag));
+			} else {
+				documents = findBlogDocs(config, metadata, blogcfg);
+			}
+			// documents = findBlogDocs(config, metadata, blogcfg);
 		}
 		async.eachSeries(elements, function(element, next) {
 			if (! metadata.blogtag) {
@@ -124,10 +129,14 @@ module.exports.mahabhuta = [
 		var elements = [];
 		var documents;
 		akasha.readDocumentEntry(metadata.documentPath, function(err, docEntry) {
+			var blogcfg = config.blogPodcast[metadata.blogtag];
 			$('blog-next-prev').each(function(i, elem) { elements.push(elem); });
 			if (elements.length > 0) {
-				blogcfg = config.blogPodcast[metadata.blogtag];
-				documents = findBlogDocs(config, metadata, blogcfg);
+				if (!blogcfg) {
+					return done(new Error('No blog configuration found for blogtag '+ metadata.blogtag));
+				} else {
+					documents = findBlogDocs(config, metadata, blogcfg);
+				}
 			}
 			async.eachSeries(elements, function(element, next) {
 				// what's the current document
