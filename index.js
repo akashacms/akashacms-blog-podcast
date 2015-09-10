@@ -83,19 +83,28 @@ module.exports.mahabhuta = [
 				next(new Error("no blogPodcast item for "+ metadata.blogtag));
 			}
 			
+			var maxEntries = $(element).attr('maxentries');
+			
 			// console.log(element.name +' '+ metadata.blogtag);
             
-            var rssitems = [];
-            for (var q = 0; q < documents.length; q++) {
+            var rssitems   = [];
+			var documents2 = [];
+			var count = 0;
+            for (var q = 0; q < documents.length; q++, count++) {
                 var doc = documents[q];
-                rssitems.push({
-                    title: doc.frontmatter.yaml.title,
-                    description: doc.frontmatter.yaml.teaser ? doc.frontmatter.yaml.teaser : "",
-                    url: config.root_url +'/'+ doc.renderedFileName,
-                    date: doc.frontmatter.yaml.publicationDate
-                        ? doc.frontmatter.yaml.publicationDate
-                        : doc.stat.mtime
-                });
+				// console.log('count='+ count +' maxEntries='+ maxEntries);
+				if (typeof maxEntries === "undefined"
+				|| (typeof maxEntries !== "undefined" && count < maxEntries)) {
+					rssitems.push({
+						title: doc.frontmatter.yaml.title,
+						description: doc.frontmatter.yaml.teaser ? doc.frontmatter.yaml.teaser : "",
+						url: config.root_url +'/'+ doc.renderedFileName,
+						date: doc.frontmatter.yaml.publicationDate
+							? doc.frontmatter.yaml.publicationDate
+							: doc.stat.mtime
+					});
+					documents2.push(doc);
+				} // else console.log('skipped');
             }
 			
             var feedRenderTo = blogcfg.rssurl;
@@ -108,7 +117,7 @@ module.exports.mahabhuta = [
                 });
             
             akasha.partial("blog-news-river.html.ejs", {
-                documents: documents,
+                documents: documents2,
                 feedUrl: feedRenderTo
             },
             function(err, htmlRiver) {
