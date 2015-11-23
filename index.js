@@ -1,5 +1,4 @@
 /**
- *
  * Copyright 2015 David Herron
  * 
  * This file is part of AkashaCMS-embeddables (http://akashacms.com/).
@@ -17,7 +16,6 @@
  *  limitations under the License.
  */
 
-
 var path     = require('path');
 var util     = require('util');
 var url      = require('url');
@@ -26,6 +24,43 @@ var async    = require('async');
 var logger;
 var akasha;
 var config;
+
+/**
+ * prepareConfig - Simplify the configuration object by filling in defaults
+ *      that make sense for blogPodcast sites.
+ */
+module.exports.prepareConfig = function(akashacms, config) {
+    
+    if (!config) {
+        config = {};
+    }
+    config = akashacms.prepareConfig(config);
+    
+    // If no config function, then set up a default set of plugins
+    if (!config.config) {
+        config.config = function(akasha) {
+    		akasha.registerPlugins([
+    			{ name: 'akashacms-breadcrumbs', plugin: require('akashacms-breadcrumbs') },
+    			{ name: 'akashacms-embeddables', plugin: require('akashacms-embeddables') },
+    			{ name: 'akashacms-blog-podcast', plugin: require('akashacms-blog-podcast') },
+    			{ name: 'akashacms-social-buttons', plugin: require('akashacms-social-buttons') },
+    			{ name: 'akashacms-base', plugin: require('akashacms-base') }
+    		]);
+        };
+    }
+    return config;
+};
+
+/**
+ * startup - Simplify configuration for a Blog using Grunt
+ */
+module.exports.startup = function(akashacms, config) {
+    
+    module.exports.prepareConfig(akashacms, config);
+    
+    // Now that we've prepared the config object, call akashacms.config
+    akashacms.config(config);
+};
 
 /**
  * Add ourselves to the config data.
