@@ -16,6 +16,7 @@
     "node": ">=0.10.1"
   },
   "dependencies": {
-    "async": "*"
+    "async": "*",
+    "debug": "^2.2.0"
   }
 }
