@@ -6,8 +6,8 @@
         %>
         <span>
             <!-- add teaser thumbnail -->
-            <a href="/<%= doc.renderedFileName %>"><h2><%= doc.frontmatter.yaml.title %></h2></a>
-            <span><%= doc.frontmatter.yaml.teaser %> (<%= doc.frontmatter.yaml.publicationDate %>)</span>
+            <a href="/<%= doc.rendername %>"><h2><%= doc.title %></h2></a>
+            <span><%= doc.metadata.teaser %> (<%= doc.metadata.publicationDate %>)</span>
         </span>
         <%
     }

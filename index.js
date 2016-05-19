@@ -35,9 +35,15 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 	configure(config) {
         this._config = config;
 		config.addPartialsDir(path.join(__dirname, 'partials'));
-		config.addMahabhuta(module.exports.mahabhuta);
+		config.addMahabhuta(mahabhuta);
+		log('config');
 	}
-
+	
+	addBlogPodcast(config, name, blogPodcast) {
+		if (!config.blogPodcast) config.blogPodcast = {};
+		config.blogPodcast[name] = blogPodcast;
+		return config;
+	}
 }
 
 /**
@@ -83,12 +89,12 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 	},
  *
  */
-var findBlogDocs = function(config, metadata, blogcfg) {
+function findBlogDocs(config, metadata, blogcfg) {
     
     return akasha.documentSearch(config, {
         // rootPath: docDirPath,
         pathmatch: blogcfg.matchers.path ? blogcfg.matchers.path : undefined,
-        renderers: [ HTMLRenderer ],
+        renderers: [ akasha.HTMLRenderer ],
         layouts: blogcfg.matchers.layouts ? blogcfg.matchers.layouts : undefined,
         rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
     })
@@ -110,24 +116,31 @@ var findBlogDocs = function(config, metadata, blogcfg) {
         });
         documents.reverse();
         return documents;
-    });
+    })
+	.then(documents => {
+		// log(util.inspect(documents));
+		return documents;
+	});
 };
 
-module.exports.mahabhuta = [
+var mahabhuta = [
 	function($, metadata, dirty, done) {
-        if (! metadata.blogtag) return done();
-        if (!metadata.config.blogPodcast) return done();
+        if (! metadata.blogtag) {return done(); }
+        if (!metadata.config.blogPodcast) { return done(); }
 		var blogcfg = metadata.config.blogPodcast[metadata.blogtag];
         if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ metadata.blogtag));
         if (! metadata.config.blogPodcast.hasOwnProperty(metadata.blogtag)) {
             return done(new Error("no blogPodcast item for "+ metadata.blogtag));
         }
+		log('blog-news-river '+ metadata.document.path +' '+ util.inspect(blogcfg));
 		var elements = [];
 		$('blog-news-river').each(function(i, elem) { elements.push(elem); });
 		if (elements.length > 0) {
+			log('blog-news-river');
 			findBlogDocs(metadata.config, metadata, blogcfg)
             .then(documents => {
-                async.eachSeries(elements, function(element, next) {
+				log(util.inspect(documents));
+                async.eachSeries(elements, (element, next) => {
                     var maxEntries = $(element).attr('maxentries');
                     
                     // console.log(element.name +' '+ metadata.blogtag);
@@ -155,49 +168,47 @@ module.exports.mahabhuta = [
                             feed_url: metadata.config.root_url + feedRenderTo,
                             pubDate: new Date()
                         },
-                        rssitems, feedRenderTo,	function(err) {
-                            if (err) logger.error(err);
-                        });
+                        rssitems, feedRenderTo)
+					.catch(err => { error(err); });
                     
                     akasha.partial(metadata.config, "blog-news-river.html.ejs", {
                         documents: documents2,
                         feedUrl: feedRenderTo
-                    },
-                    function(err, htmlRiver) {
-                        if (err) next(err);
-                        else {
-                            $(element).replaceWith(htmlRiver);
-                            next();
-                        }
-                    });
+                    })
+                    .then(htmlRiver => {
+						$(element).replaceWith(htmlRiver);
+						next();
+                    })
+					.catch(err => { next(err); });
                 },
                 function(err) {
                     if (err) done(err);
                     else done();
                 });
             });
-		}
+		} else done();
     },
 	
 	function($, metadata, dirty, done) {
-        if (! metadata.blogtag) return done();
-        if (!metadata.config.blogPodcast) return done();
+        if (! metadata.blogtag) {return done(); }
+        if (!metadata.config.blogPodcast) { return done(); }
 		var blogcfg = metadata.config.blogPodcast[metadata.blogtag];
         if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ metadata.blogtag));
         if (! metadata.config.blogPodcast.hasOwnProperty(metadata.blogtag)) {
             return done(new Error("no blogPodcast item for "+ metadata.blogtag));
         }
+		log('blog-next-prev '+ metadata.document.path +' '+ util.inspect(blogcfg));
 		var elements = [];
-		var documents;
         $('blog-next-prev').each(function(i, elem) { elements.push(elem); });
         if (elements.length > 0) {
+			log('blog-next-prev');
             findBlogDocs(metadata.config, metadata, blogcfg)
             .then(documents => {
                 async.eachSeries(elements, 
                 (element, next) => {
                     var docIndex = -1;
                     for (var j = 0; docIndex === -1 && j < documents.length; j++) {
-                        if (documents[j].path === docEntry.path) {
+                        if (documents[j].docpath === metadata.document.path) {
                             docIndex = j;
                         }
                     }
@@ -205,13 +216,13 @@ module.exports.mahabhuta = [
                         var prevDoc = docIndex === 0 ? documents[documents.length - 1] : documents[docIndex - 1];
                         var nextDoc = docIndex === documents.length - 1 ? documents[0] : documents[docIndex + 1];
                         akasha.partial(metadata.config, 'blog-next-prev.html.ejs', {
-                            prevDoc, nextDoc, thisDoc: docEntry, documents
-                        }, 
-                        (err, html) => {
-                            if (err) { return next(err); }
+                            prevDoc, nextDoc
+                        })
+                        .then(html => {
                             $(element).replaceWith(html);
                             next();
-                        });
+                        })
+						.catch(err => { next(err); });
                     } else {
                         next(new Error('did not find document in blog'));
                     }
@@ -222,7 +233,7 @@ module.exports.mahabhuta = [
                 });
             })
             .catch(err => { done(err); });
-        }
+		} else done();
 		/* akasha.readDocumentEntry(metadata.documentPath, function(err, docEntry) {
 			$('blog-next-prev').each(function(i, elem) { elements.push(elem); });
 			if (elements.length > 0) {
