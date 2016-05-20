@@ -132,50 +132,55 @@ var mahabhuta = [
         if (! metadata.config.blogPodcast.hasOwnProperty(metadata.blogtag)) {
             return done(new Error("no blogPodcast item for "+ metadata.blogtag));
         }
-		log('blog-news-river '+ metadata.document.path +' '+ util.inspect(blogcfg));
+		// log('blog-news-river '+ metadata.document.path +' '+ util.inspect(blogcfg));
 		var elements = [];
 		$('blog-news-river').each(function(i, elem) { elements.push(elem); });
 		if (elements.length > 0) {
-			log('blog-news-river');
+			// log('blog-news-river');
 			findBlogDocs(metadata.config, metadata, blogcfg)
             .then(documents => {
-				log(util.inspect(documents));
+				
+				// log('blog-news-river documents '+ util.inspect(documents));
+			
+				var count = 0;
+				var documents2 = documents.filter(doc => {
+					if (typeof maxEntries === "undefined"
+					|| (typeof maxEntries !== "undefined" && count++ < maxEntries)) {
+						return true;
+					} else return false;
+				});
+				// log('blog-news-river documents2 '+ util.inspect(documents2));
+			
+				var rssitems   = documents2.map(doc => {
+					return {
+						title: doc.metadata.title,
+						description: doc.metadata.teaser ? doc.metadata.teaser : "",
+						url: metadata.config.root_url +'/'+ doc.renderpath,
+						date: doc.metadata.publicationDate
+							? doc.metadata.publicationDate
+							: doc.stat.mtime
+					};
+				});
+				// log('blog-news-river rssitems '+ util.inspect(rssitems));
+				
                 async.eachSeries(elements, (element, next) => {
                     var maxEntries = $(element).attr('maxentries');
                     
                     // console.log(element.name +' '+ metadata.blogtag);
                     
-                    var count = 0;
-                    var documents2 = documents.filter(doc => {
-                        if (typeof maxEntries === "undefined"
-                        || (typeof maxEntries !== "undefined" && count++ < maxEntries)) {
-                            return true;
-                        } else return false;
-                    });
-                    var rssitems   = documents2.map(doc => {
-                        return {
-                            title: doc.metadata.title,
-                            description: doc.metadata.teaser ? doc.metadata.teaser : "",
-                            url: metadata.config.root_url +'/'+ doc.path,
-                            date: doc.metadata.publicationDate
-                                ? doc.metadata.publicationDate
-                                : doc.stat.mtime
-                        };
-                    });
                     
-                    var feedRenderTo = blogcfg.rssurl;
-                    akasha.generateRSS(blogcfg.rss, {
-                            feed_url: metadata.config.root_url + feedRenderTo,
+                    akasha.generateRSS(metadata.config, blogcfg, {
+                            feed_url: metadata.config.renderDestination + blogcfg.rssurl,
                             pubDate: new Date()
                         },
-                        rssitems, feedRenderTo)
+                        rssitems, blogcfg.rssurl)
 					.catch(err => { error(err); });
                     
                     akasha.partial(metadata.config, "blog-news-river.html.ejs", {
                         documents: documents2,
-                        feedUrl: feedRenderTo
+                        feedUrl: blogcfg.rssurl
                     })
-                    .then(htmlRiver => {
+                    .then(htmlRiver => {
 						$(element).replaceWith(htmlRiver);
 						next();
                     })
@@ -197,17 +202,18 @@ var mahabhuta = [
         if (! metadata.config.blogPodcast.hasOwnProperty(metadata.blogtag)) {
             return done(new Error("no blogPodcast item for "+ metadata.blogtag));
         }
-		log('blog-next-prev '+ metadata.document.path +' '+ util.inspect(blogcfg));
+		// log('blog-next-prev '+ metadata.document.path +' '+ util.inspect(blogcfg));
 		var elements = [];
         $('blog-next-prev').each(function(i, elem) { elements.push(elem); });
         if (elements.length > 0) {
-			log('blog-next-prev');
+			// log('blog-next-prev');
             findBlogDocs(metadata.config, metadata, blogcfg)
             .then(documents => {
                 async.eachSeries(elements, 
                 (element, next) => {
                     var docIndex = -1;
                     for (var j = 0; docIndex === -1 && j < documents.length; j++) {
+						// log(`blog-next-prev ${documents[j].docpath} === ${metadata.document.path}`);
                         if (documents[j].docpath === metadata.document.path) {
                             docIndex = j;
                         }
@@ -224,7 +230,7 @@ var mahabhuta = [
                         })
 						.catch(err => { next(err); });
                     } else {
-                        next(new Error('did not find document in blog'));
+                        next(new Error('did not find document '+ metadata.document.path +' in blog'));
                     }
                 },
                 err => {
