@@ -22,7 +22,7 @@ const path     = require('path');
 const util     = require('util');
 const url      = require('url');
 const async    = require('async');
-const akasha   = require('../akasharender');
+const akasha   = require('akasharender');
 
 const log   = require('debug')('akasha:blog-podcast-plugin');
 const error = require('debug')('akasha:error-blog-podcast-plugin');
