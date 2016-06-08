@@ -1,6 +1,6 @@
 /**
  * Copyright 2015 David Herron
- * 
+ *
  * This file is part of AkashaCMS-embeddables (http://akashacms.com/).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,13 +31,13 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 	constructor() {
 		super("akashacms-blog-podcast");
 	}
-	
+
 	configure(config) {
         this._config = config;
 		config.addPartialsDir(path.join(__dirname, 'partials'));
 		config.addMahabhuta(mahabhuta);
 	}
-	
+
 	addBlogPodcast(config, name, blogPodcast) {
 		if (!config.blogPodcast) config.blogPodcast = {};
 		config.blogPodcast[name] = blogPodcast;
@@ -66,7 +66,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 				path: /^news\//
 			}
 		},
-		
+
 		"howto": {
 			rss: {
 				title: "AkashaCMS Tutorials",
@@ -89,7 +89,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
  *
  */
 function findBlogDocs(config, metadata, blogcfg) {
-    
+
     return akasha.documentSearch(config, {
         // rootPath: docDirPath,
         pathmatch: blogcfg.matchers.path ? blogcfg.matchers.path : undefined,
@@ -120,7 +120,7 @@ function findBlogDocs(config, metadata, blogcfg) {
 
 var mahabhuta = [
 	function($, metadata, dirty, done) {
-		
+
 		var elements = [];
 		$('blog-news-river').each(function(i, elem) { elements.push(elem); });
 		if (elements.length > 0) {
@@ -133,22 +133,22 @@ var mahabhuta = [
 					error("NO BLOG TAG "+ metadata.document.path);
 					return done(new Error("NO BLOG TAG "+ metadata.document.path));
 				}
-				
+
 				// log('blog-news-river '+ blogtag +' '+ metadata.document.path);
-				
+
 				var blogcfg = metadata.config.blogPodcast[blogtag];
 				if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
-			
+
 				var maxEntries = $(element).attr('maxentries');
-				
+
 				var template = $(element).attr("template");
 				if (!template) template = "blog-news-river.html.ejs";
-				
+
 				findBlogDocs(metadata.config, metadata, blogcfg)
 				.then(documents => {
-					
+
 					// log('blog-news-river documents '+ util.inspect(documents));
-				
+
 					var count = 0;
 					var documents2 = documents.filter(doc => {
 						if (typeof maxEntries === "undefined"
@@ -157,7 +157,7 @@ var mahabhuta = [
 						} else return false;
 					});
 					// log('blog-news-river documents2 '+ util.inspect(documents2));
-				
+
 					var rssitems   = documents2.map(doc => {
 						return {
 							title: doc.metadata.title,
@@ -166,16 +166,16 @@ var mahabhuta = [
 							date: doc.metadata.publicationDate ? doc.metadata.publicationDate : doc.stat.mtime
 						};
 					});
-					
+
                     akasha.generateRSS(metadata.config, blogcfg, {
                             feed_url: metadata.config.renderDestination + blogcfg.rssurl,
                             pubDate: new Date()
                         },
                         rssitems, blogcfg.rssurl)
 					.catch(err => { error(err); });
-                    
+
 					// console.log(util.inspect(documents2));
-					
+
                     akasha.partial(metadata.config, template, {
                         documents: documents2,
                         feedUrl: blogcfg.rssurl
@@ -195,12 +195,12 @@ var mahabhuta = [
 
 		} else done();
     },
-	
+
 	function($, metadata, dirty, done) {
         if (! metadata.blogtag) {return done(); }
         if (!metadata.config.blogPodcast) { return done(); }
 		var blogcfg = metadata.config.blogPodcast[metadata.blogtag];
-        if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ metadata.blogtag));
+        if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ metadata.blogtag +' in '+ metadata.document.path));
         if (! metadata.config.blogPodcast.hasOwnProperty(metadata.blogtag)) {
             return done(new Error("no blogPodcast item for "+ metadata.blogtag));
         }
@@ -211,7 +211,7 @@ var mahabhuta = [
 			// log('blog-next-prev');
             findBlogDocs(metadata.config, metadata, blogcfg)
             .then(documents => {
-                async.eachSeries(elements, 
+                async.eachSeries(elements,
                 (element, next) => {
                     var docIndex = -1;
                     for (var j = 0; docIndex === -1 && j < documents.length; j++) {
