@@ -118,82 +118,159 @@ function findBlogDocs(config, metadata, blogcfg) {
 	});
 };
 
+function findBlogIndexes(config, metadata, blogcfg) {
+	if (!blogcfg.indexmatchers) return Promise.resolve([]);
+	
+	return akasha.documentSearch(config, {
+		pathmatch: blogcfg.indexmatchers.path ? blogcfg.indexmatchers.path : undefined,
+		renderers: [ akasha.HTMLRenderer ],
+        layouts: blogcfg.indexmatchers.layouts ? blogcfg.indexmatchers.layouts : undefined,
+        rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
+	});
+}
+
 var mahabhuta = [
 	function($, metadata, dirty, done) {
 
 		var elements = [];
 		$('blog-news-river').each(function(i, elem) { elements.push(elem); });
-		if (elements.length > 0) {
-			async.eachSeries(elements, (element, next) => {
-				var blogtag = $(element).attr("blogtag");
-				if (!blogtag) {
-					blogtag = metadata.blogtag;
-				}
-				if (!blogtag) {// no blog tag, skip? error?
-					error("NO BLOG TAG "+ metadata.document.path);
-					return done(new Error("NO BLOG TAG "+ metadata.document.path));
-				}
+		async.eachSeries(elements, (element, next) => {
+			var blogtag = $(element).attr("blogtag");
+			if (!blogtag) {
+				blogtag = metadata.blogtag;
+			}
+			if (!blogtag) {// no blog tag, skip? error?
+				error("NO BLOG TAG "+ metadata.document.path);
+				return done(new Error("NO BLOG TAG "+ metadata.document.path));
+			}
 
-				// log('blog-news-river '+ blogtag +' '+ metadata.document.path);
+			// log('blog-news-river '+ blogtag +' '+ metadata.document.path);
 
-				var blogcfg = metadata.config.blogPodcast[blogtag];
-				if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
+			var blogcfg = metadata.config.blogPodcast[blogtag];
+			if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
 
-				var maxEntries = $(element).attr('maxentries');
+			var maxEntries = $(element).attr('maxentries');
 
-				var template = $(element).attr("template");
-				if (!template) template = "blog-news-river.html.ejs";
+			var template = $(element).attr("template");
+			if (!template) template = "blog-news-river.html.ejs";
 
-				findBlogDocs(metadata.config, metadata, blogcfg)
-				.then(documents => {
+			findBlogDocs(metadata.config, metadata, blogcfg)
+			.then(documents => {
 
-					// log('blog-news-river documents '+ util.inspect(documents));
+				// log('blog-news-river documents '+ util.inspect(documents));
 
-					var count = 0;
-					var documents2 = documents.filter(doc => {
-						if (typeof maxEntries === "undefined"
-						|| (typeof maxEntries !== "undefined" && count++ < maxEntries)) {
-							return true;
-						} else return false;
-					});
-					// log('blog-news-river documents2 '+ util.inspect(documents2));
+				var count = 0;
+				var documents2 = documents.filter(doc => {
+					if (typeof maxEntries === "undefined"
+					|| (typeof maxEntries !== "undefined" && count++ < maxEntries)) {
+						return true;
+					} else return false;
+				});
+				// log('blog-news-river documents2 '+ util.inspect(documents2));
 
-					var rssitems   = documents2.map(doc => {
-						return {
-							title: doc.metadata.title,
-							description: doc.metadata.teaser ? doc.metadata.teaser : "",
-							url: metadata.config.root_url +'/'+ doc.renderpath,
-							date: doc.metadata.publicationDate ? doc.metadata.publicationDate : doc.stat.mtime
-						};
-					});
+				var rssitems   = documents2.map(doc => {
+					return {
+						title: doc.metadata.title,
+						description: doc.metadata.teaser ? doc.metadata.teaser : "",
+						url: metadata.config.root_url +'/'+ doc.renderpath,
+						date: doc.metadata.publicationDate ? doc.metadata.publicationDate : doc.stat.mtime
+					};
+				});
 
-                    akasha.generateRSS(metadata.config, blogcfg, {
-                            feed_url: metadata.config.renderDestination + blogcfg.rssurl,
-                            pubDate: new Date()
-                        },
-                        rssitems, blogcfg.rssurl)
-					.catch(err => { error(err); });
+                akasha.generateRSS(metadata.config, blogcfg, {
+                        feed_url: metadata.config.renderDestination + blogcfg.rssurl,
+                        pubDate: new Date()
+                    },
+                    rssitems, blogcfg.rssurl)
+				.catch(err => { error(err); });
 
-					// console.log(util.inspect(documents2));
+				// console.log(util.inspect(documents2));
 
-                    akasha.partial(metadata.config, template, {
-                        documents: documents2,
-                        feedUrl: blogcfg.rssurl
-                    })
-                    .then(htmlRiver => {
-						$(element).replaceWith(htmlRiver);
-						next();
-                    })
-					.catch(err => { next(err); });
-				})
-				.catch(err => { done(err); });
-			},
-			function(err) {
-				if (err) done(err);
-				else done();
-			});
+                akasha.partial(metadata.config, template, {
+                    documents: documents2,
+                    feedUrl: blogcfg.rssurl
+                })
+                .then(htmlRiver => {
+					$(element).replaceWith(htmlRiver);
+					next();
+                })
+				.catch(err => { next(err); });
+			})
+			.catch(err => { done(err); });
+		},
+		function(err) {
+			if (err) done(err);
+			else done();
+		});
+    },
 
-		} else done();
+	function($, metadata, dirty, done) {
+		var elements = [];
+		$('blog-news-index').each(function(i, elem) { elements.push(elem); });
+		async.eachSeries(elements, (element, next) => {
+			var blogtag = $(element).attr("blogtag");
+			if (!blogtag) {
+				blogtag = metadata.blogtag;
+			}
+			if (!blogtag) {// no blog tag, skip? error?
+				error("NO BLOG TAG "+ metadata.document.path);
+				return done(new Error("NO BLOG TAG "+ metadata.document.path));
+			}
+
+			var blogcfg = metadata.config.blogPodcast[blogtag];
+			if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
+
+			var template = $(element).attr("template");
+			if (!template) template = "blog-news-indexes.html.ejs";
+
+			findBlogIndexes(metadata.config, metadata, blogcfg)
+			.then(indexDocuments => {
+				if (indexDocuments.length <= 0) return next();
+
+                return akasha.partial(metadata.config, template, { indexDocuments })
+                .then(htmlIndexes => {
+					$(element).replaceWith(htmlIndexes);
+					next();
+                });
+			})
+			.catch(err => { next(err); });
+
+		},
+		function(err) {
+			if (err) done(err);
+			else done();
+		});
+    },
+
+	function($, metadata, dirty, done) {
+		var elements = [];
+		$('blog-rss-icon').each(function(i, elem) { elements.push(elem); });
+		async.eachSeries(elements, (element, next) => {
+			var blogtag = $(element).attr("blogtag");
+			if (!blogtag) {
+				blogtag = metadata.blogtag;
+			}
+			if (!blogtag) {// no blog tag, skip? error?
+				error("NO BLOG TAG "+ metadata.document.path);
+				return done(new Error("NO BLOG TAG "+ metadata.document.path));
+			}
+
+			var blogcfg = metadata.config.blogPodcast[blogtag];
+			if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
+
+            akasha.partial(metadata.config, "blog-rss-icon.html.ejs", {
+				feedUrl: blogcfg.rssurl
+			})
+            .then(htmlIcon => {
+				$(element).replaceWith(htmlIcon);
+				next();
+            })
+			.catch(err => { next(err); });
+		},
+		function(err) {
+			if (err) done(err);
+			else done();
+		});
     },
 
 	function($, metadata, dirty, done) {
