@@ -120,7 +120,7 @@ function findBlogDocs(config, metadata, blogcfg) {
 
 function findBlogIndexes(config, metadata, blogcfg) {
 	if (!blogcfg.indexmatchers) return Promise.resolve([]);
-	
+
 	return akasha.documentSearch(config, {
 		pathmatch: blogcfg.indexmatchers.path ? blogcfg.indexmatchers.path : undefined,
 		renderers: [ akasha.HTMLRenderer ],
@@ -140,8 +140,8 @@ var mahabhuta = [
 				blogtag = metadata.blogtag;
 			}
 			if (!blogtag) {// no blog tag, skip? error?
-				error("NO BLOG TAG "+ metadata.document.path);
-				return done(new Error("NO BLOG TAG "+ metadata.document.path));
+				error("NO BLOG TAG in blog-news-river"+ metadata.document.path);
+				return done(new Error("NO BLOG TAG in blog-news-river"+ metadata.document.path));
 			}
 
 			// log('blog-news-river '+ blogtag +' '+ metadata.document.path);
@@ -213,8 +213,8 @@ var mahabhuta = [
 				blogtag = metadata.blogtag;
 			}
 			if (!blogtag) {// no blog tag, skip? error?
-				error("NO BLOG TAG "+ metadata.document.path);
-				return done(new Error("NO BLOG TAG "+ metadata.document.path));
+				error("NO BLOG TAG in blog-news-index"+ metadata.document.path);
+				return done(new Error("NO BLOG TAG in blog-news-index"+ metadata.document.path));
 			}
 
 			var blogcfg = metadata.config.blogPodcast[blogtag];
@@ -251,8 +251,8 @@ var mahabhuta = [
 				blogtag = metadata.blogtag;
 			}
 			if (!blogtag) {// no blog tag, skip? error?
-				error("NO BLOG TAG "+ metadata.document.path);
-				return done(new Error("NO BLOG TAG "+ metadata.document.path));
+				error("NO BLOG TAG in blog-rss-icon"+ metadata.document.path);
+				return done(new Error("NO BLOG TAG in blog-rss-icon"+ metadata.document.path));
 			}
 
 			var blogcfg = metadata.config.blogPodcast[blogtag];
