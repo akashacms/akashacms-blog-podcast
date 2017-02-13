@@ -23,6 +23,7 @@ const util     = require('util');
 const url      = require('url');
 const async    = require('async');
 const akasha   = require('akasharender');
+const co       = require('co');
 
 const log   = require('debug')('akasha:blog-podcast-plugin');
 const error = require('debug')('akasha:error-blog-podcast-plugin');
@@ -39,10 +40,46 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 	}
 
 	addBlogPodcast(config, name, blogPodcast) {
-		if (!config.blogPodcast) config.blogPodcast = {};
+		if (!config.blogPodcast) config.blogPodcast = [];
 		config.blogPodcast[name] = blogPodcast;
 		return config;
 	}
+
+    onSiteRendered(config) {
+        // console.log(`blog-podcast onSiteRendered ${util.inspect(config.blogPodcast)}`);
+        return co(function* () {
+            for (var blogcfgkey in config.blogPodcast) {
+                var blogcfg = config.blogPodcast[blogcfgkey];
+                // console.log(`blog-podcast blogcfg ${util.inspect(blogcfg)}`);
+                var documents = yield findBlogDocs(config, undefined, blogcfg);
+                var count = 0;
+                var documents2 = documents.filter(doc => {
+                    if (typeof maxEntries === "undefined"
+                    || (typeof maxEntries !== "undefined" && count++ < maxEntries)) {
+                        return true;
+                    } else return false;
+                });
+                // log('blog-news-river documents2 '+ util.inspect(documents2));
+
+                var rssitems   = documents2.map(doc => {
+                    return {
+                        title: doc.metadata.title,
+                        description: doc.metadata.teaser ? doc.metadata.teaser : "",
+                        url: config.root_url +'/'+ doc.renderpath,
+                        date: doc.metadata.publicationDate ? doc.metadata.publicationDate : doc.stat.mtime
+                    };
+                });
+
+                // console.log(`GENERATE RSS ${config.renderDestination + blogcfg.rssurl} ${util.inspect(rssitems)}`);
+
+                yield akasha.generateRSS(config, blogcfg, {
+                        feed_url: config.renderDestination + blogcfg.rssurl,
+                        pubDate: new Date()
+                    },
+                    rssitems, blogcfg.rssurl);
+            }
+        });
+    }
 }
 
 /**
@@ -98,6 +135,7 @@ function findBlogDocs(config, metadata, blogcfg) {
         rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
     })
     .then(documents => {
+        // console.log('findBlogDocs '+ util.inspect(documents));
         documents.sort(function(a, b) {
             var aPublicationDate = Date.parse(
                 a.metadata.publicationDate ? a.metadata.publicationDate : a.stat.mtime
@@ -144,17 +182,32 @@ var mahabhuta = [
 				return done(new Error("NO BLOG TAG in blog-news-river"+ metadata.document.path));
 			}
 
-			// log('blog-news-river '+ blogtag +' '+ metadata.document.path);
+            // log('blog-news-river '+ blogtag +' '+ metadata.document.path);
 
-			var blogcfg = metadata.config.blogPodcast[blogtag];
-			if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
+            var blogcfg = metadata.config.blogPodcast[blogtag];
+            if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
 
-			var maxEntries = $(element).attr('maxentries');
+            var _blogcfg = {};
+            for (var key in blogcfg) {
+                _blogcfg[key] = blogcfg[key];
+            }
 
-			var template = $(element).attr("template");
-			if (!template) template = "blog-news-river.html.ejs";
+            var maxEntries = $(element).attr('maxentries');
 
-			findBlogDocs(metadata.config, metadata, blogcfg)
+            var template = $(element).attr("template");
+            if (!template) template = "blog-news-river.html.ejs";
+
+            var rootPath = $(element).attr('root-path');
+            if (rootPath) {
+                _blogcfg.rootPath = rootPath;
+            }
+
+            var docRootPath = $(element).attr('doc-root-path');
+            if (docRootPath) {
+                _blogcfg.rootPath = path.dirname(docRootPath);
+            }
+
+			findBlogDocs(metadata.config, metadata, _blogcfg)
 			.then(documents => {
 
 				// log('blog-news-river documents '+ util.inspect(documents));
@@ -168,31 +221,13 @@ var mahabhuta = [
 				});
 				// log('blog-news-river documents2 '+ util.inspect(documents2));
 
-				var rssitems   = documents2.map(doc => {
-					return {
-						title: doc.metadata.title,
-						description: doc.metadata.teaser ? doc.metadata.teaser : "",
-						url: metadata.config.root_url +'/'+ doc.renderpath,
-						date: doc.metadata.publicationDate ? doc.metadata.publicationDate : doc.stat.mtime
-					};
-				});
-
-                akasha.generateRSS(metadata.config, blogcfg, {
-                        feed_url: metadata.config.renderDestination + blogcfg.rssurl,
-                        pubDate: new Date()
-                    },
-                    rssitems, blogcfg.rssurl)
-				.catch(err => { error(err); });
-
-				// console.log(util.inspect(documents2));
-
                 akasha.partial(metadata.config, template, {
                     documents: documents2,
-                    feedUrl: blogcfg.rssurl
+                    feedUrl: _blogcfg.rssurl
                 })
                 .then(htmlRiver => {
-					$(element).replaceWith(htmlRiver);
-					next();
+                    $(element).replaceWith(htmlRiver);
+                    next();
                 })
 				.catch(err => { next(err); });
 			})
