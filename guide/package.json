@@ -1,0 +1,23 @@
+{
+  "name": "akashacms-blog-podcast-guide",
+  "version": "0.1.0",
+  "description": "Guide book for Blog/Podcast plugin",
+  "main": "config.js",
+  "scripts": {
+    "prebuild": "rm -rf out/* && mkdir -p out && akasharender copy-assets config.js",
+    "build": "akasharender render config.js"
+  },
+  "author": "David Herron <david@davidherron.com>",
+  "license": "ISC",
+  "dependencies": {
+    "akasharender": ">=0.5.15",
+    "bootstrap": "^3.3.7",
+    "jquery": "^3.2.0",
+    "mahabhuta": ">=0.6.3",
+    "akashacms-base": "akashacms/akashacms-base#akasharender",
+    "akashacms-booknav": "akashacms/akashacms-booknav#akasharender",
+    "akashacms-breadcrumbs": "akashacms/akashacms-breadcrumbs#akasharender",
+    "akashacms-theme-bootstrap": "akashacms/akashacms-theme-bootstrap#akasharender",
+    "epub-website": "akashacms/epub-website"
+  }
+}
