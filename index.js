@@ -28,28 +28,40 @@ const co       = require('co');
 const log   = require('debug')('akasha:blog-podcast-plugin');
 const error = require('debug')('akasha:error-blog-podcast-plugin');
 
+const pluginName = "akashacms-blog-podcast";
+
 module.exports = class BlogPodcastPlugin extends akasha.Plugin {
-	constructor() {
-		super("akashacms-blog-podcast");
-	}
+    constructor() { super(pluginName); }
 
 	configure(config) {
         this._config = config;
 		config.addPartialsDir(path.join(__dirname, 'partials'));
 		config.addMahabhuta(mahabhuta);
+        config.pluginData(pluginName).bloglist = [];
 	}
 
-	addBlogPodcast(config, name, blogPodcast) {
-		if (!config.blogPodcast) config.blogPodcast = [];
-		config.blogPodcast[name] = blogPodcast;
-		return config;
-	}
+    addBlogPodcast(config, name, blogPodcast) {
+        config.pluginData(pluginName).bloglist[name] = blogPodcast;
+        return config;
+    }
+
+    isLegitLocalHref(config, href) {
+        // console.log(`isLegitLocalHref ${util.inspect(config.pluginData(pluginName).bloglist)} === ${href}?`);
+        for (var blogkey in config.pluginData(pluginName).bloglist) {
+            var blogcfg = config.pluginData(pluginName).bloglist[blogkey];
+            // console.log(`isLegitLocalHref ${blogcfg.rssurl} === ${href}?`);
+            if (blogcfg.rssurl === href) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     onSiteRendered(config) {
         // console.log(`blog-podcast onSiteRendered ${util.inspect(config.blogPodcast)}`);
         return co(function* () {
-            for (var blogcfgkey in config.blogPodcast) {
-                var blogcfg = config.blogPodcast[blogcfgkey];
+            for (var blogkey in config.pluginData(pluginName).bloglist) {
+                var blogcfg = config.pluginData(pluginName).bloglist[blogkey];
                 // console.log(`blog-podcast blogcfg ${util.inspect(blogcfg)}`);
                 var documents = yield findBlogDocs(config, undefined, blogcfg);
                 var count = 0;
@@ -184,7 +196,7 @@ var mahabhuta = [
 
             // log('blog-news-river '+ blogtag +' '+ metadata.document.path);
 
-            var blogcfg = metadata.config.blogPodcast[blogtag];
+            var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
             if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
 
             var _blogcfg = {};
@@ -252,7 +264,7 @@ var mahabhuta = [
 				return done(new Error("NO BLOG TAG in blog-news-index"+ metadata.document.path));
 			}
 
-			var blogcfg = metadata.config.blogPodcast[blogtag];
+			var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
 			if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
 
 			var template = $(element).attr("template");
@@ -290,7 +302,7 @@ var mahabhuta = [
 				return done(new Error("NO BLOG TAG in blog-rss-icon"+ metadata.document.path));
 			}
 
-			var blogcfg = metadata.config.blogPodcast[blogtag];
+			var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
 			if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
 
             akasha.partial(metadata.config, "blog-rss-icon.html.ejs", {
@@ -310,13 +322,8 @@ var mahabhuta = [
 
 	function($, metadata, dirty, done) {
         if (! metadata.blogtag) {return done(); }
-        if (!metadata.config.blogPodcast) { return done(); }
-		var blogcfg = metadata.config.blogPodcast[metadata.blogtag];
+		var blogcfg = metadata.config.pluginData(pluginName).bloglist[metadata.blogtag];
         if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ metadata.blogtag +' in '+ metadata.document.path));
-        if (! metadata.config.blogPodcast.hasOwnProperty(metadata.blogtag)) {
-            return done(new Error("no blogPodcast item for "+ metadata.blogtag));
-        }
-		// log('blog-next-prev '+ metadata.document.path +' '+ util.inspect(blogcfg));
 		var elements = [];
         $('blog-next-prev').each(function(i, elem) { elements.push(elem); });
         if (elements.length > 0) {
