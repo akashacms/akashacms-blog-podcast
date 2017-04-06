@@ -1,5 +1,5 @@
 ---
-layout: ebook-page.html.ejs
+layout: plugin-documentation.html.ejs
 title: AskashaCMS Blog/Podcast plugin documentation
 ---
 
@@ -210,4 +210,4 @@ We do this as follows:
 </div>
 ```
 
-Notice that a `blogtag` attribute is given, to specify the blog being displayed. 
+Notice that a `blogtag` attribute is given, to specify the blog being displayed.
