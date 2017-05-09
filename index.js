@@ -73,7 +73,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
                 });
                 // log('blog-news-river documents2 '+ util.inspect(documents2));
 
-                var rssitems   = documents2.map(doc => {
+                var rssitems = documents2.map(doc => {
                     return {
                         title: doc.metadata.title,
                         description: doc.metadata.teaser ? doc.metadata.teaser : "",
@@ -81,6 +81,27 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
                         date: doc.metadata.publicationDate ? doc.metadata.publicationDate : doc.stat.mtime
                     };
                 });
+
+                var maxItems;
+                if (typeof blogcfg.maxItems !== 'undefined') {
+                    maxItems = 60;
+                } else if (blogcfg.maxItems <= 0) {
+                    maxItems = undefined;
+                } else {
+                    maxItems = blogcfg.maxItems;
+                }
+
+                if (maxItems) {
+                    let rssitems2 = [];
+                    let count = 0;
+                    for (let item of rssitems) {
+                        if (count < maxItems) {
+                            rssitems2.push(item);
+                        }
+                        count++;
+                    }
+                    rssitems = rssitems2;
+                }
 
                 // console.log(`GENERATE RSS ${config.renderDestination + blogcfg.rssurl} ${util.inspect(rssitems)}`);
 
