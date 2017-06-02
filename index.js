@@ -83,7 +83,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
                 });
 
                 var maxItems;
-                if (typeof blogcfg.maxItems !== 'undefined') {
+                if (typeof blogcfg.maxItems === 'undefined') {
                     maxItems = 60;
                 } else if (blogcfg.maxItems <= 0) {
                     maxItems = undefined;
@@ -97,11 +97,14 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
                     for (let item of rssitems) {
                         if (count < maxItems) {
                             rssitems2.push(item);
+                            // console.log(`${blogkey} PUSH ITEM ${count} ${util.inspect(item)}`);
                         }
                         count++;
                     }
                     rssitems = rssitems2;
                 }
+
+                // console.log(`GENERATE RSS rssitems # ${rssitems.length} maxItems ${maxItems} ${util.inspect(blogcfg)} `);
 
                 // console.log(`GENERATE RSS ${config.renderDestination + blogcfg.rssurl} ${util.inspect(rssitems)}`);
 
