@@ -1,6 +1,6 @@
 /**
  * Copyright 2015 David Herron
- * 
+ *
  * This file is part of AkashaCMS-embeddables (http://akashacms.com/).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,207 +16,343 @@
  *  limitations under the License.
  */
 
-var path     = require('path');
-var util     = require('util');
-var url      = require('url');
-var async    = require('async');
+'use strict';
 
-var logger;
-var akasha;
-var config;
+const path     = require('path');
+const util     = require('util');
+const url      = require('url');
+const async    = require('async');
+const akasha   = require('akasharender');
+const mahabhuta = require('mahabhuta');
+const co       = require('co');
 
-/**
- * prepareConfig - Simplify the configuration object by filling in defaults
- *      that make sense for blogPodcast sites.
- */
-module.exports.prepareConfig = function(akashacms, config) {
-    
-    if (!config) {
-        config = {};
+const log   = require('debug')('akasha:blog-podcast-plugin');
+const error = require('debug')('akasha:error-blog-podcast-plugin');
+
+const pluginName = "akashacms-blog-podcast";
+
+module.exports = class BlogPodcastPlugin extends akasha.Plugin {
+    constructor() { super(pluginName); }
+
+	configure(config) {
+        this._config = config;
+		config.addPartialsDir(path.join(__dirname, 'partials'));
+		config.addMahabhuta(module.exports.mahabhuta);
+        config.pluginData(pluginName).bloglist = [];
+	}
+
+    addBlogPodcast(config, name, blogPodcast) {
+        config.pluginData(pluginName).bloglist[name] = blogPodcast;
+        return config;
     }
-    config = akashacms.prepareConfig(config);
-    
-    // If no config function, then set up a default set of plugins
-    if (!config.config) {
-        config.config = function(akasha) {
-    		akasha.registerPlugins([
-    			{ name: 'akashacms-breadcrumbs', plugin: require('akashacms-breadcrumbs') },
-    			{ name: 'akashacms-embeddables', plugin: require('akashacms-embeddables') },
-    			{ name: 'akashacms-blog-podcast', plugin: require('akashacms-blog-podcast') },
-    			{ name: 'akashacms-social-buttons', plugin: require('akashacms-social-buttons') },
-    			{ name: 'akashacms-base', plugin: require('akashacms-base') }
-    		]);
-        };
-    }
-    return config;
-};
 
-/**
- * startup - Simplify configuration for a Blog using Grunt
- */
-module.exports.startup = function(akashacms, config) {
-    
-    module.exports.prepareConfig(akashacms, config);
-    
-    // Now that we've prepared the config object, call akashacms.config
-    akashacms.config(config);
-};
-
-/**
- * Add ourselves to the config data.
- **/
-module.exports.config = function(_akasha, _config) {
-	akasha = _akasha;
-	config = _config;
-	logger = akasha.getLogger("blog-podcast");
-    config.root_partials.push(path.join(__dirname, 'partials'));
-    
-	return module.exports;
-};
-
-var findBlogDocs = function(config, metadata, blogcfg) {
-	var documents = akasha.findMatchingDocuments(blogcfg.matchers);
-	
-	documents.sort(function(a, b) {
-		var aPublicationDate = Date.parse(
-				a.frontmatter.yaml.publicationDate
-			  ? a.frontmatter.yaml.publicationDate
-			  : a.stat.mtime
-		);
-		var bPublicationDate = Date.parse(
-				b.frontmatter.yaml.publicationDate
-			  ? b.frontmatter.yaml.publicationDate
-			  : b.stat.mtime
-		);
-		if (aPublicationDate < bPublicationDate) return -1;
-		else if (aPublicationDate === bPublicationDate) return 0;
-		else return 1;
-	});
-	documents.reverse();
-	
-	return documents;
-};
-
-module.exports.mahabhuta = [
-	function($, metadata, dirty, done) {
-		var elements = [];
-		var documents, blogcfg;
-		$('blog-news-river').each(function(i, elem) { elements.push(elem); });
-		if (elements.length > 0) {
-			blogcfg = config.blogPodcast[metadata.blogtag];
-			if (!blogcfg) {
-				return done(new Error('No blog configuration found for blogtag '+ metadata.blogtag));
-			} else {
-				documents = findBlogDocs(config, metadata, blogcfg);
-			}
-			// documents = findBlogDocs(config, metadata, blogcfg);
-		}
-		async.eachSeries(elements, function(element, next) {
-			if (! metadata.blogtag) {
-				next(new Error("no blogtag"));
-			} else if (! config.blogPodcast.hasOwnProperty(metadata.blogtag)) {
-				next(new Error("no blogPodcast item for "+ metadata.blogtag));
-			}
-			
-			var maxEntries = $(element).attr('maxentries');
-			
-			// console.log(element.name +' '+ metadata.blogtag);
-            
-            var rssitems   = [];
-			var documents2 = [];
-			var count = 0;
-            for (var q = 0; q < documents.length; q++, count++) {
-                var doc = documents[q];
-				// console.log('count='+ count +' maxEntries='+ maxEntries);
-				if (typeof maxEntries === "undefined"
-				|| (typeof maxEntries !== "undefined" && count < maxEntries)) {
-					rssitems.push({
-						title: doc.frontmatter.yaml.title,
-						description: doc.frontmatter.yaml.teaser ? doc.frontmatter.yaml.teaser : "",
-						url: config.root_url +'/'+ doc.renderedFileName,
-						date: doc.frontmatter.yaml.publicationDate
-							? doc.frontmatter.yaml.publicationDate
-							: doc.stat.mtime
-					});
-					documents2.push(doc);
-				} // else console.log('skipped');
+    isLegitLocalHref(config, href) {
+        // console.log(`isLegitLocalHref ${util.inspect(config.pluginData(pluginName).bloglist)} === ${href}?`);
+        for (var blogkey in config.pluginData(pluginName).bloglist) {
+            var blogcfg = config.pluginData(pluginName).bloglist[blogkey];
+            // console.log(`isLegitLocalHref ${blogcfg.rssurl} === ${href}?`);
+            if (blogcfg.rssurl === href) {
+                return true;
             }
-			
-            var feedRenderTo = blogcfg.rssurl;
-            akasha.generateRSS(blogcfg.rss, {
-                    feed_url: config.root_url + feedRenderTo,
-                    pubDate: new Date()
-                },
-                rssitems, feedRenderTo,	function(err) {
-                    if (err) logger.error(err);
-                });
-            
-            akasha.partial("blog-news-river.html.ejs", {
-                documents: documents2,
-                feedUrl: feedRenderTo
-            },
-            function(err, htmlRiver) {
-                if (err) next(err);
-                else {
-                    $(element).replaceWith(htmlRiver);
-                    next();
-                }
-            });
-        },
-        function(err) {
-			if (err) done(err);
-			else done();
-		});
-    },
-	
-	function($, metadata, dirty, done) {
-		var elements = [];
-		var documents;
-		akasha.readDocumentEntry(metadata.documentPath, function(err, docEntry) {
-			var blogcfg = config.blogPodcast[metadata.blogtag];
-			$('blog-next-prev').each(function(i, elem) { elements.push(elem); });
-			if (elements.length > 0) {
-				if (!blogcfg) {
-					return done(new Error('No blog configuration found for blogtag '+ metadata.blogtag));
-				} else {
-					documents = findBlogDocs(config, metadata, blogcfg);
-				}
-			}
-			async.eachSeries(elements, function(element, next) {
-				// what's the current document
-				// find it within documents
-				var docIndex = -1;
-				for (var j = 0; j < documents.length; j++) {
-					if (documents[j].path === docEntry.path) {
-						docIndex = j;
-					}
-				}
-				if (docIndex >= 0) {
-					var prevDoc = docIndex === 0 ? documents[documents.length - 1] : documents[docIndex - 1];
-					var nextDoc = docIndex === documents.length - 1 ? documents[0] : documents[docIndex + 1];
-					akasha.partial('blog-next-prev.html.ejs', {
-						prevDoc: prevDoc, nextDoc: nextDoc, thisDoc: docEntry, documents: documents
-					}, function(err, html) {
-						if (err) next(err);
-						else {
-							$(element).replaceWith(html);
-							next();
-						}
-					});
-				} else {
-					next(new Error('did not find document in blog'));
-				}
-				// prevDoc =
-				// nextDoc =
-				// akasha.partial('blog-next-prev.html.ejs', {
-				//		prevDoc: prevDoc, nextDoc: nextDoc
-				// })
-				// next();
-			},
-			function(err) {
-				if (err) done(err);
-				else done();
-			});
-		});
+        }
+        return false;
     }
-];
+
+    onSiteRendered(config) {
+        // console.log(`blog-podcast onSiteRendered ${util.inspect(config.blogPodcast)}`);
+        return co(function* () {
+            for (var blogkey in config.pluginData(pluginName).bloglist) {
+                var blogcfg = config.pluginData(pluginName).bloglist[blogkey];
+                // console.log(`blog-podcast blogcfg ${util.inspect(blogcfg)}`);
+                var documents = yield findBlogDocs(config, undefined, blogcfg);
+                var count = 0;
+                var documents2 = documents.filter(doc => {
+                    if (typeof maxEntries === "undefined"
+                    || (typeof maxEntries !== "undefined" && count++ < maxEntries)) {
+                        return true;
+                    } else return false;
+                });
+                // log('blog-news-river documents2 '+ util.inspect(documents2));
+
+                var rssitems = documents2.map(doc => {
+                    return {
+                        title: doc.metadata.title,
+                        description: doc.metadata.teaser ? doc.metadata.teaser : "",
+                        url: config.root_url +'/'+ doc.renderpath,
+                        date: doc.metadata.publicationDate ? doc.metadata.publicationDate : doc.stat.mtime
+                    };
+                });
+
+                var maxItems;
+                if (typeof blogcfg.maxItems === 'undefined') {
+                    maxItems = 60;
+                } else if (blogcfg.maxItems <= 0) {
+                    maxItems = undefined;
+                } else {
+                    maxItems = blogcfg.maxItems;
+                }
+
+                if (maxItems) {
+                    let rssitems2 = [];
+                    let count = 0;
+                    for (let item of rssitems) {
+                        if (count < maxItems) {
+                            rssitems2.push(item);
+                            // console.log(`${blogkey} PUSH ITEM ${count} ${util.inspect(item)}`);
+                        }
+                        count++;
+                    }
+                    rssitems = rssitems2;
+                }
+
+                // console.log(`GENERATE RSS rssitems # ${rssitems.length} maxItems ${maxItems} ${util.inspect(blogcfg)} `);
+
+                // console.log(`GENERATE RSS ${config.renderDestination + blogcfg.rssurl} ${util.inspect(rssitems)}`);
+
+                yield akasha.generateRSS(config, blogcfg, {
+                        feed_url: config.renderDestination + blogcfg.rssurl,
+                        pubDate: new Date()
+                    },
+                    rssitems, blogcfg.rssurl);
+            }
+        });
+    }
+}
+
+/**
+ *
+	blogPodcast: {
+		"news": {
+			rss: {
+				title: "AkashaCMS News",
+				description: "Announcements and news about the AkashaCMS content management system",
+				site_url: "http://akashacms.com/news/index.html",
+				image_url: "http://akashacms.com/logo.gif",
+				managingEditor: 'David Herron',
+				webMaster: 'David Herron',
+				copyright: '2015 David Herron',
+				language: 'en',
+				categories: [ "Node.js", "Content Management System", "HTML5", "Static website generator" ]
+			},
+			rssurl: "/news/rss.xml",
+			matchers: {
+				layouts: [ "blog.html.ejs" ],
+				path: /^news\//
+			}
+		},
+
+		"howto": {
+			rss: {
+				title: "AkashaCMS Tutorials",
+				description: "Tutorials about using the AkashaCMS content management system",
+				site_url: "http://akashacms.com/howto/index.html",
+				image_url: "http://akashacms.com/logo.gif",
+				managingEditor: 'David Herron',
+				webMaster: 'David Herron',
+				copyright: '2015 David Herron',
+				language: 'en',
+				categories: [ "Node.js", "Content Management System", "HTML5", "HTML5", "Static website generator" ]
+			},
+			rssurl: "/howto/rss.xml",
+			matchers: {
+				layouts: [ "blog.html.ejs" ],
+				path: /^howto\//
+			}
+		}
+	},
+ *
+ */
+var findBlogDocs = co.wrap(function* (config, metadata, blogcfg) {
+
+    var documents = yield akasha.documentSearch(config, {
+        // rootPath: docDirPath,
+        pathmatch: blogcfg.matchers.path ? blogcfg.matchers.path : undefined,
+        renderers: [ akasha.HTMLRenderer ],
+        layouts: blogcfg.matchers.layouts ? blogcfg.matchers.layouts : undefined,
+        rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
+    });
+
+    // console.log('findBlogDocs '+ util.inspect(documents));
+    documents.sort((a, b) => {
+        var aPublicationDate = Date.parse(
+            a.metadata.publicationDate ? a.metadata.publicationDate : a.stat.mtime
+        );
+        var bPublicationDate = Date.parse(
+            b.metadata.publicationDate ? b.metadata.publicationDate : b.stat.mtime
+        );
+        if (aPublicationDate < bPublicationDate) return -1;
+        else if (aPublicationDate === bPublicationDate) return 0;
+        else return 1;
+    });
+    documents.reverse();
+    return documents;
+});
+
+function findBlogIndexes(config, metadata, blogcfg) {
+    if (!blogcfg.indexmatchers) return Promise.resolve([]);
+
+    return akasha.documentSearch(config, {
+        pathmatch: blogcfg.indexmatchers.path ? blogcfg.indexmatchers.path : undefined,
+        renderers: [ akasha.HTMLRenderer ],
+        layouts: blogcfg.indexmatchers.layouts ? blogcfg.indexmatchers.layouts : undefined,
+        rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
+    });
+}
+
+module.exports.mahabhuta = new mahabhuta.MahafuncArray("akashacms-blog-podcast", {});
+
+class BlogNewsRiverElement extends mahabhuta.CustomElement {
+    get elementName() { return "blog-news-river"; }
+    process($element, metadata, dirty) {
+        var blogtag = $element.attr("blogtag");
+        if (!blogtag) {
+            blogtag = metadata.blogtag;
+        }
+        if (!blogtag) {// no blog tag, skip? error?
+            error("NO BLOG TAG in blog-news-river"+ metadata.document.path);
+            throw new Error("NO BLOG TAG in blog-news-river"+ metadata.document.path);
+        }
+
+        // log('blog-news-river '+ blogtag +' '+ metadata.document.path);
+
+        var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
+        if (!blogcfg) throw new Error('No blog configuration found for blogtag '+ blogtag);
+
+        var _blogcfg = {};
+        for (var key in blogcfg) {
+            _blogcfg[key] = blogcfg[key];
+        }
+
+        var maxEntries = $element.attr('maxentries');
+
+        var template = $element.attr("template");
+        if (!template) template = "blog-news-river.html.ejs";
+
+        var rootPath = $element.attr('root-path');
+        if (rootPath) {
+            _blogcfg.rootPath = rootPath;
+        }
+
+        var docRootPath = $element.attr('doc-root-path');
+        if (docRootPath) {
+            _blogcfg.rootPath = path.dirname(docRootPath);
+        }
+
+        return findBlogDocs(metadata.config, metadata, _blogcfg)
+        .then(documents => {
+
+            // log('blog-news-river documents '+ util.inspect(documents));
+
+            var count = 0;
+            var documents2 = documents.filter(doc => {
+                if (typeof maxEntries === "undefined"
+                || (typeof maxEntries !== "undefined" && count++ < maxEntries)) {
+                    return true;
+                } else return false;
+            });
+            // log('blog-news-river documents2 '+ util.inspect(documents2));
+
+            return akasha.partial(metadata.config, template, {
+                documents: documents2,
+                feedUrl: _blogcfg.rssurl
+            });
+        });
+    }
+}
+module.exports.mahabhuta.addMahafunc(new BlogNewsRiverElement());
+
+class BlogNewsIndexElement extends mahabhuta.CustomElement {
+    get elementName() { return "blog-news-index"; }
+    process($element, metadata, dirty) {
+        var blogtag = $element.attr("blogtag");
+        if (!blogtag) {
+            blogtag = metadata.blogtag;
+        }
+        if (!blogtag) {// no blog tag, skip? error?
+            error("NO BLOG TAG in blog-news-index"+ metadata.document.path);
+            throw new Error("NO BLOG TAG in blog-news-index"+ metadata.document.path);
+        }
+
+        var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
+        if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
+
+        var template = $element.attr("template");
+        if (!template) template = "blog-news-indexes.html.ejs";
+
+        return findBlogIndexes(metadata.config, metadata, blogcfg)
+        .then(indexDocuments => {
+            return akasha.partial(metadata.config, template, { indexDocuments });
+        });
+    }
+}
+module.exports.mahabhuta.addMahafunc(new BlogNewsIndexElement());
+
+class BlogRSSIconElement extends mahabhuta.CustomElement {
+    get elementName() { return "blog-rss-icon"; }
+    process($element, metadata, dirty) {
+        var blogtag = $element.attr("blogtag");
+        if (!blogtag) {
+            blogtag = metadata.blogtag;
+        }
+        if (!blogtag) {// no blog tag, skip? error?
+            error("NO BLOG TAG in blog-rss-icon"+ metadata.document.path);
+            throw new Error("NO BLOG TAG in blog-rss-icon"+ metadata.document.path);
+        }
+
+        var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
+        if (!blogcfg) throw new Error('No blog configuration found for blogtag '+ blogtag);
+
+        var template = $element.attr("template");
+        if (!template) template = "blog-rss-icon.html.ejs";
+
+        return akasha.partial(metadata.config, template, {
+            feedUrl: blogcfg.rssurl
+        });
+    }
+}
+module.exports.mahabhuta.addMahafunc(new BlogRSSIconElement());
+
+module.exports.mahabhuta.addMahafunc([
+    function($, metadata, dirty, done) {
+        if (! metadata.blogtag) {return done(); }
+        var blogcfg = metadata.config.pluginData(pluginName).bloglist[metadata.blogtag];
+        if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ metadata.blogtag +' in '+ metadata.document.path));
+        var elements = [];
+        $('blog-next-prev').each(function(i, elem) { elements.push(elem); });
+        if (elements.length > 0) {
+            // log('blog-next-prev');
+            findBlogDocs(metadata.config, metadata, blogcfg)
+            .then(documents => {
+                async.eachSeries(elements,
+                (element, next) => {
+                    var docIndex = -1;
+                    for (var j = 0; docIndex === -1 && j < documents.length; j++) {
+                        // log(`blog-next-prev ${documents[j].docpath} === ${metadata.document.path}`);
+                        if (documents[j].docpath === metadata.document.path) {
+                            docIndex = j;
+                        }
+                    }
+                    if (docIndex >= 0) {
+                        var prevDoc = docIndex === 0 ? documents[documents.length - 1] : documents[docIndex - 1];
+                        var nextDoc = docIndex === documents.length - 1 ? documents[0] : documents[docIndex + 1];
+                        akasha.partial(metadata.config, 'blog-next-prev.html.ejs', {
+                            prevDoc, nextDoc
+                        })
+                        .then(html => {
+                            $(element).replaceWith(html);
+                            next();
+                        })
+                        .catch(err => { next(err); });
+                    } else {
+                        next(new Error('did not find document '+ metadata.document.path +' in blog'));
+                    }
+                },
+                err => {
+                    if (err) done(err);
+                    else done();
+                });
+            })
+            .catch(err => { done(err); });
+		} else done();
+    }
+]);
