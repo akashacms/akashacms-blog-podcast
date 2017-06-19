@@ -27,10 +27,8 @@ With that in mind, let's go over the requirements for a blog/podcast AkashaCMS p
 Assuming you have a working AkashaCMS site, run this command:
 
 ```
-$ npm install 'akashacms/akashacms-blog-podcast#akasharender' --save
+$ npm install akashacms-blog-podcast --save
 ```
-
-As of this moment, the `npm` package `akashacms-blog-podcast` is the old version of this plugin which supports the older AkashaCMS system.  The time required to convert to the new AkashaRender-based-AkashaCMS has not been available.  The AkashaRender version of this plugin is available on its `akasharender` branch.
 
 In the `config.js` (again, the AkashaRender style of `config.js`) add this:
 
