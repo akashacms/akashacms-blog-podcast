@@ -23,6 +23,7 @@ const util     = require('util');
 const url      = require('url');
 const async    = require('async');
 const akasha   = require('akasharender');
+const mahabhuta = require('mahabhuta');
 const co       = require('co');
 
 const log   = require('debug')('akasha:blog-podcast-plugin');
@@ -36,7 +37,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 	configure(config) {
         this._config = config;
 		config.addPartialsDir(path.join(__dirname, 'partials'));
-		config.addMahabhuta(mahabhuta);
+		config.addMahabhuta(module.exports.mahabhuta);
         config.pluginData(pluginName).bloglist = [];
 	}
 
@@ -161,204 +162,172 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 	},
  *
  */
-function findBlogDocs(config, metadata, blogcfg) {
+var findBlogDocs = co.wrap(function* (config, metadata, blogcfg) {
 
-    return akasha.documentSearch(config, {
+    var documents = yield akasha.documentSearch(config, {
         // rootPath: docDirPath,
         pathmatch: blogcfg.matchers.path ? blogcfg.matchers.path : undefined,
         renderers: [ akasha.HTMLRenderer ],
         layouts: blogcfg.matchers.layouts ? blogcfg.matchers.layouts : undefined,
         rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
-    })
-    .then(documents => {
-        // console.log('findBlogDocs '+ util.inspect(documents));
-        documents.sort(function(a, b) {
-            var aPublicationDate = Date.parse(
-                a.metadata.publicationDate ? a.metadata.publicationDate : a.stat.mtime
-            );
-            var bPublicationDate = Date.parse(
-                b.metadata.publicationDate ? b.metadata.publicationDate : b.stat.mtime
-            );
-            if (aPublicationDate < bPublicationDate) return -1;
-            else if (aPublicationDate === bPublicationDate) return 0;
-            else return 1;
-        });
-        documents.reverse();
-        return documents;
-    })
-	.then(documents => {
-		// log(util.inspect(documents));
-		return documents;
-	});
-};
+    });
+
+    // console.log('findBlogDocs '+ util.inspect(documents));
+    documents.sort((a, b) => {
+        var aPublicationDate = Date.parse(
+            a.metadata.publicationDate ? a.metadata.publicationDate : a.stat.mtime
+        );
+        var bPublicationDate = Date.parse(
+            b.metadata.publicationDate ? b.metadata.publicationDate : b.stat.mtime
+        );
+        if (aPublicationDate < bPublicationDate) return -1;
+        else if (aPublicationDate === bPublicationDate) return 0;
+        else return 1;
+    });
+    documents.reverse();
+    return documents;
+});
 
 function findBlogIndexes(config, metadata, blogcfg) {
-	if (!blogcfg.indexmatchers) return Promise.resolve([]);
+    if (!blogcfg.indexmatchers) return Promise.resolve([]);
 
-	return akasha.documentSearch(config, {
-		pathmatch: blogcfg.indexmatchers.path ? blogcfg.indexmatchers.path : undefined,
-		renderers: [ akasha.HTMLRenderer ],
+    return akasha.documentSearch(config, {
+        pathmatch: blogcfg.indexmatchers.path ? blogcfg.indexmatchers.path : undefined,
+        renderers: [ akasha.HTMLRenderer ],
         layouts: blogcfg.indexmatchers.layouts ? blogcfg.indexmatchers.layouts : undefined,
         rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
-	});
+    });
 }
 
-var mahabhuta = [
-	function($, metadata, dirty, done) {
+module.exports.mahabhuta = new mahabhuta.MahafuncArray("akashacms-blog-podcast", {});
 
-		var elements = [];
-		$('blog-news-river').each(function(i, elem) { elements.push(elem); });
-		async.eachSeries(elements, (element, next) => {
-			var blogtag = $(element).attr("blogtag");
-			if (!blogtag) {
-				blogtag = metadata.blogtag;
-			}
-			if (!blogtag) {// no blog tag, skip? error?
-				error("NO BLOG TAG in blog-news-river"+ metadata.document.path);
-				return done(new Error("NO BLOG TAG in blog-news-river"+ metadata.document.path));
-			}
+class BlogNewsRiverElement extends mahabhuta.CustomElement {
+    get elementName() { return "blog-news-river"; }
+    process($element, metadata, dirty) {
+        var blogtag = $element.attr("blogtag");
+        if (!blogtag) {
+            blogtag = metadata.blogtag;
+        }
+        if (!blogtag) {// no blog tag, skip? error?
+            error("NO BLOG TAG in blog-news-river"+ metadata.document.path);
+            throw new Error("NO BLOG TAG in blog-news-river"+ metadata.document.path);
+        }
 
-            // log('blog-news-river '+ blogtag +' '+ metadata.document.path);
+        // log('blog-news-river '+ blogtag +' '+ metadata.document.path);
 
-            var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
-            if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
+        var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
+        if (!blogcfg) throw new Error('No blog configuration found for blogtag '+ blogtag);
 
-            var _blogcfg = {};
-            for (var key in blogcfg) {
-                _blogcfg[key] = blogcfg[key];
-            }
+        var _blogcfg = {};
+        for (var key in blogcfg) {
+            _blogcfg[key] = blogcfg[key];
+        }
 
-            var maxEntries = $(element).attr('maxentries');
+        var maxEntries = $element.attr('maxentries');
 
-            var template = $(element).attr("template");
-            if (!template) template = "blog-news-river.html.ejs";
+        var template = $element.attr("template");
+        if (!template) template = "blog-news-river.html.ejs";
 
-            var rootPath = $(element).attr('root-path');
-            if (rootPath) {
-                _blogcfg.rootPath = rootPath;
-            }
+        var rootPath = $element.attr('root-path');
+        if (rootPath) {
+            _blogcfg.rootPath = rootPath;
+        }
 
-            var docRootPath = $(element).attr('doc-root-path');
-            if (docRootPath) {
-                _blogcfg.rootPath = path.dirname(docRootPath);
-            }
+        var docRootPath = $element.attr('doc-root-path');
+        if (docRootPath) {
+            _blogcfg.rootPath = path.dirname(docRootPath);
+        }
 
-			findBlogDocs(metadata.config, metadata, _blogcfg)
-			.then(documents => {
+        return findBlogDocs(metadata.config, metadata, _blogcfg)
+        .then(documents => {
 
-				// log('blog-news-river documents '+ util.inspect(documents));
+            // log('blog-news-river documents '+ util.inspect(documents));
 
-				var count = 0;
-				var documents2 = documents.filter(doc => {
-					if (typeof maxEntries === "undefined"
-					|| (typeof maxEntries !== "undefined" && count++ < maxEntries)) {
-						return true;
-					} else return false;
-				});
-				// log('blog-news-river documents2 '+ util.inspect(documents2));
+            var count = 0;
+            var documents2 = documents.filter(doc => {
+                if (typeof maxEntries === "undefined"
+                || (typeof maxEntries !== "undefined" && count++ < maxEntries)) {
+                    return true;
+                } else return false;
+            });
+            // log('blog-news-river documents2 '+ util.inspect(documents2));
 
-                akasha.partial(metadata.config, template, {
-                    documents: documents2,
-                    feedUrl: _blogcfg.rssurl
-                })
-                .then(htmlRiver => {
-                    $(element).replaceWith(htmlRiver);
-                    next();
-                })
-				.catch(err => { next(err); });
-			})
-			.catch(err => { done(err); });
-		},
-		function(err) {
-			if (err) done(err);
-			else done();
-		});
-    },
+            return akasha.partial(metadata.config, template, {
+                documents: documents2,
+                feedUrl: _blogcfg.rssurl
+            });
+        });
+    }
+}
+module.exports.mahabhuta.addMahafunc(new BlogNewsRiverElement());
 
-	function($, metadata, dirty, done) {
-		var elements = [];
-		$('blog-news-index').each(function(i, elem) { elements.push(elem); });
-		async.eachSeries(elements, (element, next) => {
-			var blogtag = $(element).attr("blogtag");
-			if (!blogtag) {
-				blogtag = metadata.blogtag;
-			}
-			if (!blogtag) {// no blog tag, skip? error?
-				error("NO BLOG TAG in blog-news-index"+ metadata.document.path);
-				return done(new Error("NO BLOG TAG in blog-news-index"+ metadata.document.path));
-			}
+class BlogNewsIndexElement extends mahabhuta.CustomElement {
+    get elementName() { return "blog-news-index"; }
+    process($element, metadata, dirty) {
+        var blogtag = $element.attr("blogtag");
+        if (!blogtag) {
+            blogtag = metadata.blogtag;
+        }
+        if (!blogtag) {// no blog tag, skip? error?
+            error("NO BLOG TAG in blog-news-index"+ metadata.document.path);
+            throw new Error("NO BLOG TAG in blog-news-index"+ metadata.document.path);
+        }
 
-			var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
-			if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
+        var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
+        if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
 
-			var template = $(element).attr("template");
-			if (!template) template = "blog-news-indexes.html.ejs";
+        var template = $element.attr("template");
+        if (!template) template = "blog-news-indexes.html.ejs";
 
-			findBlogIndexes(metadata.config, metadata, blogcfg)
-			.then(indexDocuments => {
-				if (indexDocuments.length <= 0) return next();
+        return findBlogIndexes(metadata.config, metadata, blogcfg)
+        .then(indexDocuments => {
+            return akasha.partial(metadata.config, template, { indexDocuments });
+        });
+    }
+}
+module.exports.mahabhuta.addMahafunc(new BlogNewsIndexElement());
 
-                return akasha.partial(metadata.config, template, { indexDocuments })
-                .then(htmlIndexes => {
-					$(element).replaceWith(htmlIndexes);
-					next();
-                });
-			})
-			.catch(err => { next(err); });
+class BlogRSSIconElement extends mahabhuta.CustomElement {
+    get elementName() { return "blog-rss-icon"; }
+    process($element, metadata, dirty) {
+        var blogtag = $element.attr("blogtag");
+        if (!blogtag) {
+            blogtag = metadata.blogtag;
+        }
+        if (!blogtag) {// no blog tag, skip? error?
+            error("NO BLOG TAG in blog-rss-icon"+ metadata.document.path);
+            throw new Error("NO BLOG TAG in blog-rss-icon"+ metadata.document.path);
+        }
 
-		},
-		function(err) {
-			if (err) done(err);
-			else done();
-		});
-    },
+        var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
+        if (!blogcfg) throw new Error('No blog configuration found for blogtag '+ blogtag);
 
-	function($, metadata, dirty, done) {
-		var elements = [];
-		$('blog-rss-icon').each(function(i, elem) { elements.push(elem); });
-		async.eachSeries(elements, (element, next) => {
-			var blogtag = $(element).attr("blogtag");
-			if (!blogtag) {
-				blogtag = metadata.blogtag;
-			}
-			if (!blogtag) {// no blog tag, skip? error?
-				error("NO BLOG TAG in blog-rss-icon"+ metadata.document.path);
-				return done(new Error("NO BLOG TAG in blog-rss-icon"+ metadata.document.path));
-			}
+        var template = $element.attr("template");
+        if (!template) template = "blog-rss-icon.html.ejs";
 
-			var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
-			if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
+        return akasha.partial(metadata.config, template, {
+            feedUrl: blogcfg.rssurl
+        });
+    }
+}
+module.exports.mahabhuta.addMahafunc(new BlogRSSIconElement());
 
-            akasha.partial(metadata.config, "blog-rss-icon.html.ejs", {
-				feedUrl: blogcfg.rssurl
-			})
-            .then(htmlIcon => {
-				$(element).replaceWith(htmlIcon);
-				next();
-            })
-			.catch(err => { next(err); });
-		},
-		function(err) {
-			if (err) done(err);
-			else done();
-		});
-    },
-
-	function($, metadata, dirty, done) {
+module.exports.mahabhuta.addMahafunc([
+    function($, metadata, dirty, done) {
         if (! metadata.blogtag) {return done(); }
-		var blogcfg = metadata.config.pluginData(pluginName).bloglist[metadata.blogtag];
+        var blogcfg = metadata.config.pluginData(pluginName).bloglist[metadata.blogtag];
         if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ metadata.blogtag +' in '+ metadata.document.path));
-		var elements = [];
+        var elements = [];
         $('blog-next-prev').each(function(i, elem) { elements.push(elem); });
         if (elements.length > 0) {
-			// log('blog-next-prev');
+            // log('blog-next-prev');
             findBlogDocs(metadata.config, metadata, blogcfg)
             .then(documents => {
                 async.eachSeries(elements,
                 (element, next) => {
                     var docIndex = -1;
                     for (var j = 0; docIndex === -1 && j < documents.length; j++) {
-						// log(`blog-next-prev ${documents[j].docpath} === ${metadata.document.path}`);
+                        // log(`blog-next-prev ${documents[j].docpath} === ${metadata.document.path}`);
                         if (documents[j].docpath === metadata.document.path) {
                             docIndex = j;
                         }
@@ -373,7 +342,7 @@ var mahabhuta = [
                             $(element).replaceWith(html);
                             next();
                         })
-						.catch(err => { next(err); });
+                        .catch(err => { next(err); });
                     } else {
                         next(new Error('did not find document '+ metadata.document.path +' in blog'));
                     }
@@ -386,4 +355,4 @@ var mahabhuta = [
             .catch(err => { done(err); });
 		} else done();
     }
-];
+]);
