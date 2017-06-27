@@ -13,6 +13,8 @@ That is, podcasts are a series of podcast episodes.  Each episode is either an a
 
 For a working example, see: https://github.com/akashacms/akashacms-blog-skeleton
 
+That example site is auto-built to:  https://blog-skeleton.akashacms.com
+
 # Requirements
 
 With that in mind, let's go over the requirements for a blog/podcast AkashaCMS plugin.
@@ -30,6 +32,8 @@ Assuming you have a working AkashaCMS site, run this command:
 $ npm install akashacms-blog-podcast --save
 ```
 
+This installs the plugin, and automatically adds it to the `dependencies` in `package.json`
+
 In the `config.js` (again, the AkashaRender style of `config.js`) add this:
 
 ```
@@ -41,7 +45,7 @@ config
 
 That much adds the Blog/Podcast support to AkashaCMS, but does not define any blogs.
 
-The blog-skeleton site has a full working config.js:  https://github.com/akashacms/akashacms-blog-skeleton/blob/master/config.js
+The blog-skeleton site has a full working `config.js`:  https://github.com/akashacms/akashacms-blog-skeleton/blob/master/config.js
 
 # Defining a blog
 
