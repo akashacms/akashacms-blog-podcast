@@ -61,8 +61,8 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     onSiteRendered(config) {
         // console.log(`blog-podcast onSiteRendered ${util.inspect(config.blogPodcast)}`);
         return co(function* () {
-            for (var blogkey in config.pluginData(pluginName).bloglist) {
-                var blogcfg = config.pluginData(pluginName).bloglist[blogkey];
+            for (var blogcfg of config.pluginData(pluginName).bloglist) {
+                // var blogcfg = config.pluginData(pluginName).bloglist[blogkey];
                 // console.log(`blog-podcast blogcfg ${util.inspect(blogcfg)}`);
                 var documents = yield findBlogDocs(config, undefined, blogcfg);
                 var count = 0;
@@ -163,6 +163,10 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
  *
  */
 var findBlogDocs = co.wrap(function* (config, metadata, blogcfg) {
+
+    if (!blogcfg || !blogcfg.matchers) {
+        throw new Error(`findBlogDocs no blogcfg for ${util.inspect(metadata.document)}`);
+    }
 
     var documents = yield akasha.documentSearch(config, {
         // rootPath: docDirPath,
