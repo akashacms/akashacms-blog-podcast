@@ -59,10 +59,20 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     }
 
     onSiteRendered(config) {
-        // console.log(`blog-podcast onSiteRendered ${util.inspect(config.blogPodcast)}`);
+        /* console.log(`blog-podcast onSiteRendered ${util.inspect(config.pluginData(pluginName).bloglist)}`);
+        console.log(`   Object.keys ${util.inspect(Object.keys(config.pluginData(pluginName).bloglist))}`);
+        for (let key in config.pluginData(pluginName).bloglist) {
+            console.log(`blog-podcast in ${key} hasOwnProperty ${config.pluginData(pluginName).bloglist.hasOwnProperty(key)}`);
+            if (config.pluginData(pluginName).bloglist.hasOwnProperty(key)) {
+                console.log(`   OBJECT ${config.pluginData(pluginName).bloglist[key]}`);
+            }
+        } */
         return co(function* () {
-            for (var blogcfg of config.pluginData(pluginName).bloglist) {
-                // var blogcfg = config.pluginData(pluginName).bloglist[blogkey];
+            for (var blogkey in config.pluginData(pluginName).bloglist) {
+                if (!config.pluginData(pluginName).bloglist.hasOwnProperty(blogkey)) {
+                    continue;
+                }
+                var blogcfg = config.pluginData(pluginName).bloglist[blogkey];
                 // console.log(`blog-podcast blogcfg ${util.inspect(blogcfg)}`);
                 var documents = yield findBlogDocs(config, undefined, blogcfg);
                 var count = 0;
