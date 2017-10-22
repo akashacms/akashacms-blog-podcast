@@ -326,47 +326,37 @@ class BlogRSSIconElement extends mahabhuta.CustomElement {
 }
 module.exports.mahabhuta.addMahafunc(new BlogRSSIconElement());
 
-module.exports.mahabhuta.addMahafunc([
-    function($, metadata, dirty, done) {
-        if (! metadata.blogtag) {return done(); }
-        var blogcfg = metadata.config.pluginData(pluginName).bloglist[metadata.blogtag];
-        if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ metadata.blogtag +' in '+ metadata.document.path));
-        var elements = [];
-        $('blog-next-prev').each(function(i, elem) { elements.push(elem); });
-        if (elements.length > 0) {
-            // log('blog-next-prev');
-            findBlogDocs(metadata.config, metadata, blogcfg)
-            .then(documents => {
-                async.eachSeries(elements,
-                (element, next) => {
-                    var docIndex = -1;
-                    for (var j = 0; docIndex === -1 && j < documents.length; j++) {
-                        // log(`blog-next-prev ${documents[j].docpath} === ${metadata.document.path}`);
-                        if (documents[j].docpath === metadata.document.path) {
-                            docIndex = j;
-                        }
-                    }
-                    if (docIndex >= 0) {
-                        var prevDoc = docIndex === 0 ? documents[documents.length - 1] : documents[docIndex - 1];
-                        var nextDoc = docIndex === documents.length - 1 ? documents[0] : documents[docIndex + 1];
-                        akasha.partial(metadata.config, 'blog-next-prev.html.ejs', {
-                            prevDoc, nextDoc
-                        })
-                        .then(html => {
-                            $(element).replaceWith(html);
-                            next();
-                        })
-                        .catch(err => { next(err); });
-                    } else {
-                        next(new Error('did not find document '+ metadata.document.path +' in blog'));
-                    }
-                },
-                err => {
-                    if (err) done(err);
-                    else done();
+class BlogNextPrevElement extends mahabhuta.CustomElement {
+    get elementName() { return "blog-next-prev"; }
+    process($element, metadata, dirty) {
+        return co(function* () {
+            if (! metadata.blogtag) { return; }
+            let blogcfg = metadata.config.pluginData(pluginName).bloglist[metadata.blogtag];
+            if (!blogcfg) throw new Error(`No blog configuration found for blogtag ${metadata.blogtag} in ${metadata.document.path}`);
+    
+            let docpathNoSlash = metadata.document.path.startsWith('/') ? metadata.document.path.substring(1) : metadata.document.path;
+            let documents = yield findBlogDocs(metadata.config, metadata, blogcfg);
+
+            let docIndex = -1;
+            for (var j = 0; docIndex === -1 && j < documents.length; j++) {
+                let document = documents[j];
+                // console.log(`blog-next-prev findBlogDocs blogtag ${util.inspect(metadata.blogtag)} found ${document.basedir} ${document.docpath} ${document.docfullpath} ${document.renderpath}  MATCHES? ${docpathNoSlash}  ${metadata.document.path}`);
+                if (document.docpath === docpathNoSlash /* metadata.document.path */) {
+                    docIndex = j;
+                }
+            }
+            if (docIndex >= 0) {
+                let prevDoc = docIndex === 0 ? documents[documents.length - 1] : documents[docIndex - 1];
+                let nextDoc = docIndex === documents.length - 1 ? documents[0] : documents[docIndex + 1];
+                let html = yield akasha.partial(metadata.config, 'blog-next-prev.html.ejs', {
+                    prevDoc, nextDoc
                 });
-            })
-            .catch(err => { done(err); });
-		} else done();
+                return html;
+            } else {
+                // console.error(`blog-next-prev did not find document ${docpathNoSlash} ${metadata.document.path} in blog`);
+                throw new Error(`did not find document ${docpathNoSlash} ${metadata.document.path} in blog`);
+            }
+        });
     }
-]);
+}
+module.exports.mahabhuta.addMahafunc(new BlogNextPrevElement());
