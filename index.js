@@ -23,7 +23,7 @@ const util     = require('util');
 const url      = require('url');
 const async    = require('async');
 const akasha   = require('akasharender');
-const mahabhuta = require('mahabhuta');
+const mahabhuta = akasha.mahabhuta;
 const co       = require('co');
 
 const log   = require('debug')('akasha:blog-podcast-plugin');
