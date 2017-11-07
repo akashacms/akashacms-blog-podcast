@@ -11,13 +11,12 @@
     "type": "git",
     "url": "git://github.com/akashacms/akashacms-blog-podcast.git"
   },
-  "version": "0.6.5",
+  "version": "0.6.6",
   "engines": {
-    "node": ">=6.1"
+    "node": ">=8.4"
   },
   "dependencies": {
     "async": "*",
-    "debug": "^2.2.0",
-    "co": "*"
+    "debug": "^2.2.0"
   }
 }
