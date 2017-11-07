@@ -341,7 +341,7 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
             for (var j = 0; docIndex === -1 && j < documents.length; j++) {
                 let document = documents[j];
                 // console.log(`blog-next-prev findBlogDocs blogtag ${util.inspect(metadata.blogtag)} found ${document.basedir} ${document.docpath} ${document.docfullpath} ${document.renderpath}  MATCHES? ${docpathNoSlash}  ${metadata.document.path}`);
-                if (document.docpath === docpathNoSlash /* metadata.document.path */) {
+                if (path.normalize(document.docpath) === path.normalize(docpathNoSlash)) {
                     docIndex = j;
                 }
             }
