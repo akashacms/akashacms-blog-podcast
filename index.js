@@ -271,26 +271,24 @@ module.exports.mahabhuta.addMahafunc(new BlogNewsRiverElement());
 
 class BlogNewsIndexElement extends mahabhuta.CustomElement {
     get elementName() { return "blog-news-index"; }
-    process($element, metadata, dirty) {
+    async process($element, metadata, dirty) {
         var blogtag = $element.attr("blogtag");
         if (!blogtag) {
             blogtag = metadata.blogtag;
         }
         if (!blogtag) {// no blog tag, skip? error?
             error("NO BLOG TAG in blog-news-index"+ metadata.document.path);
-            throw new Error("NO BLOG TAG in blog-news-index"+ metadata.document.path);
+            throw new Error("NO BLOG TAG in blog-news-index "+ metadata.document.path);
         }
 
         var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
-        if (!blogcfg) return done(new Error('No blog configuration found for blogtag '+ blogtag));
+        if (!blogcfg) throw new Error('No blog configuration found for blogtag '+ blogtag);
 
         var template = $element.attr("template");
         if (!template) template = "blog-news-indexes.html.ejs";
 
-        return findBlogIndexes(metadata.config, metadata, blogcfg)
-        .then(indexDocuments => {
-            return akasha.partial(metadata.config, template, { indexDocuments });
-        });
+        let indexDocuments = await findBlogIndexes(metadata.config, metadata, blogcfg);
+        return akasha.partial(metadata.config, template, { indexDocuments });
     }
 }
 module.exports.mahabhuta.addMahafunc(new BlogNewsIndexElement());
@@ -334,7 +332,7 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
         for (var j = 0; docIndex === -1 && j < documents.length; j++) {
             let document = documents[j];
             // console.log(`blog-next-prev findBlogDocs blogtag ${util.inspect(metadata.blogtag)} found ${document.basedir} ${document.docpath} ${document.docfullpath} ${document.renderpath}  MATCHES? ${docpathNoSlash}  ${metadata.document.path}`);
-            if (path.normalize(document.docpath) === path.normalize(docpathNoSlash)) {
+            if (path.normalize(document.docdestpath) === path.normalize(docpathNoSlash)) {
                 docIndex = j;
             }
         }
