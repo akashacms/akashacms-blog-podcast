@@ -57,6 +57,8 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     }
 
     async onSiteRendered(config) {
+        console.log(`blog-podcast onSiteRendered ${util.inspect(config.pluginData(pluginName).bloglist)}`);
+        console.log(`   Object.keys ${util.inspect(Object.keys(config.pluginData(pluginName).bloglist))}`);
         /* console.log(`blog-podcast onSiteRendered ${util.inspect(config.pluginData(pluginName).bloglist)}`);
         console.log(`   Object.keys ${util.inspect(Object.keys(config.pluginData(pluginName).bloglist))}`);
         for (let key in config.pluginData(pluginName).bloglist) {
@@ -70,7 +72,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
                 continue;
             }
             var blogcfg = config.pluginData(pluginName).bloglist[blogkey];
-            // console.log(`blog-podcast blogcfg ${util.inspect(blogcfg)}`);
+            console.log(`blog-podcast blogcfg ${util.inspect(blogcfg)}`);
             var documents = await findBlogDocs(config, undefined, blogcfg);
             var count = 0;
             var documents2 = documents.filter(doc => {
@@ -79,7 +81,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
                     return true;
                 } else return false;
             });
-            // log('blog-news-river documents2 '+ util.inspect(documents2));
+            console.log('blog-news-river documents2 '+ util.inspect(documents2));
 
             var rssitems = documents2.map(doc => {
                 return {
@@ -112,9 +114,9 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
                 rssitems = rssitems2;
             }
 
-            // console.log(`GENERATE RSS rssitems # ${rssitems.length} maxItems ${maxItems} ${util.inspect(blogcfg)} `);
+            console.log(`GENERATE RSS rssitems # ${rssitems.length} maxItems ${maxItems} ${util.inspect(blogcfg)} `);
 
-            // console.log(`GENERATE RSS ${config.renderDestination + blogcfg.rssurl} ${util.inspect(rssitems)}`);
+            console.log(`GENERATE RSS ${config.renderDestination + blogcfg.rssurl} ${util.inspect(rssitems)}`);
 
             await akasha.generateRSS(config, blogcfg, {
                     feed_url: config.renderDestination + blogcfg.rssurl,
