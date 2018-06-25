@@ -65,17 +65,22 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
                 console.log(`   OBJECT ${config.pluginData(pluginName).bloglist[key]}`);
             }
         } */
+        const tasks = [];
         for (var blogkey in config.pluginData(pluginName).bloglist) {
             if (!config.pluginData(pluginName).bloglist.hasOwnProperty(blogkey)) {
                 continue;
             }
             var blogcfg = config.pluginData(pluginName).bloglist[blogkey];
+            tasks.push(blogcfg);
+        }
+        await Promise.all(tasks.map(async blogcfg => {
             // console.log(`blog-podcast blogcfg ${util.inspect(blogcfg)}`);
+            const taskStart = new Date();
             var documents = await findBlogDocs(config, undefined, blogcfg);
             var count = 0;
             var documents2 = documents.filter(doc => {
-                if (typeof maxEntries === "undefined"
-                || (typeof maxEntries !== "undefined" && count++ < maxEntries)) {
+                if (typeof blogcfg.maxEntries === "undefined"
+                || (typeof blogcfg.maxEntries !== "undefined" && count++ < blogcfg.maxEntries)) {
                     return true;
                 } else return false;
             });
@@ -121,7 +126,11 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
                     pubDate: new Date()
                 },
                 rssitems, blogcfg.rssurl);
-        }
+
+            const taskEnd = new Date();
+
+            console.log(`GENERATED RSS ${config.renderDestination + blogcfg.rssurl} rssitems # ${rssitems.length} in ${(taskEnd - taskStart) / 1000}`)
+        }));
     }
 }
 
