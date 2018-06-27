@@ -327,6 +327,31 @@ class BlogRSSIconElement extends mahabhuta.CustomElement {
 }
 module.exports.mahabhuta.addMahafunc(new BlogRSSIconElement());
 
+class BlogRSSLinkElement extends mahabhuta.CustomElement {
+    get elementName() { return "blog-rss-link"; }
+    process($element, metadata, dirty) {
+        var blogtag = $element.attr("blogtag");
+        if (!blogtag) {
+            blogtag = metadata.blogtag;
+        }
+        if (!blogtag) {// no blog tag, skip? error?
+            error("NO BLOG TAG in blog-rss-link"+ metadata.document.path);
+            throw new Error("NO BLOG TAG in blog-rss-link"+ metadata.document.path);
+        }
+
+        var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
+        if (!blogcfg) throw new Error('No blog configuration found for blogtag '+ blogtag);
+
+        var template = $element.attr("template");
+        if (!template) template = "blog-rss-link.html.ejs";
+
+        return akasha.partial(metadata.config, template, {
+            feedUrl: blogcfg.rssurl
+        });
+    }
+}
+module.exports.mahabhuta.addMahafunc(new BlogRSSLinkElement());
+
 class BlogNextPrevElement extends mahabhuta.CustomElement {
     get elementName() { return "blog-next-prev"; }
     async process($element, metadata, dirty) {
