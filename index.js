@@ -313,6 +313,7 @@ class BlogRSSIconElement extends mahabhuta.CustomElement {
             error("NO BLOG TAG in blog-rss-icon"+ metadata.document.path);
             throw new Error("NO BLOG TAG in blog-rss-icon"+ metadata.document.path);
         }
+        var title = $element.attr("title");
 
         var blogcfg = metadata.config.pluginData(pluginName).bloglist[blogtag];
         if (!blogcfg) throw new Error('No blog configuration found for blogtag '+ blogtag);
@@ -321,7 +322,8 @@ class BlogRSSIconElement extends mahabhuta.CustomElement {
         if (!template) template = "blog-rss-icon.html.ejs";
 
         return akasha.partial(metadata.config, template, {
-            feedUrl: blogcfg.rssurl
+            feedUrl: blogcfg.rssurl,
+            title: title
         });
     }
 }
