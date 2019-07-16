@@ -87,10 +87,12 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             // console.log('blog-news-river documents2 '+ util.inspect(documents2));
 
             var rssitems = documents2.map(doc => {
+                let u = new URL(config.root_url);
+                u.pathname = doc.renderpath;
                 return {
                     title: doc.metadata.title,
                     description: doc.metadata.teaser ? doc.metadata.teaser : "",
-                    url: config.root_url +'/'+ doc.renderpath,
+                    url: u.toString(),
                     date: doc.metadata.publicationDate ? doc.metadata.publicationDate : doc.stat.mtime
                 };
             });
@@ -121,15 +123,17 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 
             // console.log(`GENERATE RSS ${config.renderDestination + blogcfg.rssurl} ${util.inspect(rssitems)}`);
 
+            let feed_url = new URL(config.root_url);
+            feed_url.pathname = blogcfg.rssurl;
             await akasha.generateRSS(config, blogcfg, {
-                    feed_url: config.renderDestination + blogcfg.rssurl,
+                    feed_url: feed_url.toString(),
                     pubDate: new Date()
                 },
                 rssitems, blogcfg.rssurl);
 
             const taskEnd = new Date();
 
-            console.log(`GENERATED RSS ${config.renderDestination + blogcfg.rssurl} rssitems # ${rssitems.length} in ${(taskEnd - taskStart) / 1000}`)
+            console.log(`GENERATED RSS ${feed_url.toString()} rssitems # ${rssitems.length} in ${(taskEnd - taskStart) / 1000}`)
         }));
     }
 }
