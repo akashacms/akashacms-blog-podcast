@@ -149,7 +149,7 @@ module.exports.mahabhutaArray = function(options) {
     ret.addMahafunc(new BlogRSSIconElement());
     ret.addMahafunc(new BlogRSSLinkElement());
     ret.addMahafunc(new BlogNextPrevElement());
-    ret.addMahabhuta(new BlogNewsIndexElement());
+    ret.addMahafunc(new BlogNewsIndexElement());
     return ret;
 };
 
