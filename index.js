@@ -38,20 +38,19 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         options.config = config;
 		config.addPartialsDir(path.join(__dirname, 'partials'));
         config.addMahabhuta(module.exports.mahabhutaArray(options));
-        config.pluginData(pluginName).bloglist = [];
+        options.bloglist = [];
 	}
 
     get config() { return this[_plugin_config]; }
     get options() { return this[_plugin_options]; }
 
     addBlogPodcast(config, name, blogPodcast) {
-        if (!this.options.bloglist) this.options.bloglist = {};
         this.options.bloglist[name] = blogPodcast;
         return this.config;
     }
 
     isLegitLocalHref(config, href) {
-        // console.log(`isLegitLocalHref ${util.inspect(config.pluginData(pluginName).bloglist)} === ${href}?`);
+        // console.log(`isLegitLocalHref ${util.inspect(this.options.bloglist)} === ${href}?`);
         for (var blogkey in this.options.bloglist) {
             var blogcfg = this.options.bloglist[blogkey];
             // console.log(`isLegitLocalHref ${blogcfg.rssurl} === ${href}?`);
@@ -63,14 +62,6 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     }
 
     async onSiteRendered(config) {
-        /* console.log(`blog-podcast onSiteRendered ${util.inspect(config.pluginData(pluginName).bloglist)}`);
-        console.log(`   Object.keys ${util.inspect(Object.keys(config.pluginData(pluginName).bloglist))}`);
-        for (let key in config.pluginData(pluginName).bloglist) {
-            console.log(`blog-podcast in ${key} hasOwnProperty ${config.pluginData(pluginName).bloglist.hasOwnProperty(key)}`);
-            if (config.pluginData(pluginName).bloglist.hasOwnProperty(key)) {
-                console.log(`   OBJECT ${config.pluginData(pluginName).bloglist[key]}`);
-            }
-        } */
         const tasks = [];
         for (var blogkey in this.options.bloglist) {
             if (!this.options.bloglist.hasOwnProperty(blogkey)) {
@@ -252,7 +243,7 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
 
         // log('blog-news-river '+ blogtag +' '+ metadata.document.path);
 
-        var blogcfg = this.array.options.config.pluginData(pluginName).bloglist[blogtag];
+        var blogcfg = this.array.options.bloglist[blogtag];
         if (!blogcfg) throw new Error('No blog configuration found for blogtag '+ blogtag);
 
         var _blogcfg = {};
