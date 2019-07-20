@@ -45,6 +45,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     get options() { return this[_plugin_options]; }
 
     addBlogPodcast(config, name, blogPodcast) {
+        if (!this.options.bloglist) this.options.bloglist = {};
         this.options.bloglist[name] = blogPodcast;
         return this.config;
     }
