@@ -38,7 +38,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         options.config = config;
 		config.addPartialsDir(path.join(__dirname, 'partials'));
         config.addMahabhuta(module.exports.mahabhutaArray(options));
-        options.bloglist = [];
+        if (!options.bloglist) options.bloglist = [];
 	}
 
     get config() { return this[_plugin_config]; }
