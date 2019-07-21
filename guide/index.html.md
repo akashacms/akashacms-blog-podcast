@@ -36,10 +36,14 @@ This installs the plugin, and automatically adds it to the `dependencies` in `pa
 
 In the `config.js` (again, the AkashaRender style of `config.js`) add this:
 
-```
+```js
 config
     ...
-    .use(require('akashacms-blog-podcast'))
+    .use(require('akashacms-blog-podcast'), {
+        bloglist: {
+            // blog definitions
+        }
+    })
     ...
 ```
 
@@ -57,32 +61,43 @@ The plugin only supports RSS, not Atom.  It's unfortunately true that the plugin
 
 This comes from `akashacms-blog-skeleton`
 
-```
-config.plugin('akashacms-blog-podcast')
-    .addBlogPodcast(config, "news", {
-        rss: {
-            title: "AkashaCMS Example Blog",
-            description: "Skeleton blog for use with AkashaCMS",
-            site_url: "http://blog-skeleton.akashacms.com/blog/index.html",
-            image_url: "http://akashacms.com/logo.gif",
-            managingEditor: 'David Herron',
-            webMaster: 'David Herron',
-            copyright: '2015 David Herron',
-            language: 'en',
-            categories: [ "Node.js", "Content Management System", "HTML5", "Static website generator" ]
-        },
-        rssurl: "/blog/rss.xml",
-        rootPath: "blog",
-        matchers: {
-            layouts: [ "blog.html.ejs" ],
-            path: /^blog\//
+```js
+config
+    ...
+    .use(require('akashacms-blog-podcast'), {
+        bloglist: {
+            news: {
+                rss: {
+                    title: "AkashaCMS Example Blog",
+                    description: "Skeleton blog for use with AkashaCMS",
+                    site_url: "http://blog-skeleton.akashacms.com/blog/index.html",
+                    image_url: "http://akashacms.com/logo.gif",
+                    managingEditor: 'David Herron',
+                    webMaster: 'David Herron',
+                    copyright: '2015 David Herron',
+                    language: 'en',
+                    categories: [ "Node.js", "Content Management System", "HTML5", "Static website generator" ]
+                },
+                rssurl: "/blog/rss.xml",
+                rootPath: "blog",
+                matchers: {
+                    layouts: [ "blog.html.ejs" ],
+                    path: /^blog\//
+                }
+            }
         }
-    });
+    })
 ```
 
-With `config.plugin('akashacms-blog-podcast')` we access the Plugin instance object so we can call the `addBlogPodcast` function.  As the name implies, this adds another Blog/Podcast to the site.
+The `options` object for `akashacms-blog-podcast` is the list of blogs to be configured for this website.  The `bloglist` object contains entries where the _key_ (in this case `news`) is the _blogtag_, and the value is the configuration for the blog.
 
-The first argument is the `config` object, and the second is the `blogtag`.  That string is used in several places to identify which blog instance is being referenced.  The last argument is an object describing the blog instance.
+The _blogtag_ can be thought of as a short name for the blog.  It is used in several places, such as in the header of articles that are part of the blog.  A document will have this header to identify which blog it is part of:
+
+```yaml
+blogtag: news
+```
+
+As we said, the content of this object describes the blog.
 
 The `rss` field contains several entries describing the RSS metadata.  This object is passed directly to the `rss` module, see its documentation for more details:  https://www.npmjs.com/package/rss  Notice that it's relatively easy to define the metadata required for a podcast using that module.
 
@@ -105,7 +120,7 @@ The `akashacms-blog-podcast` plugin provides multiple custom tags that are usefu
 
 The content documents contained in the blog/podcast must all include one metadata/frontmatter entry, `blogtag`, where the value is the `blogtag` value given above.  Here's an example:
 
-```
+```yaml
 ---
 layout: blog.html.ejs
 title: Test Post 1
@@ -125,7 +140,7 @@ The `teaser` is what's output in the RSS feed.
 
 The `blog.html.ejs` template (https://github.com/akashacms/akashacms-blog-skeleton/blob/akasharender/layouts/blog.html.ejs) is meant for formatting a single blog post.  It's a fairly normal page layout but with a couple additions.
 
-```
+```html
 <div class="row">
   <section id="breadcrumb" class="col-sm-12">
     <breadcrumb-trail></breadcrumb-trail>
@@ -135,7 +150,7 @@ The `blog.html.ejs` template (https://github.com/akashacms/akashacms-blog-skelet
 
 It's useful (perhaps) to organize the content documents in a directory structure, where the hierarchy has useful meaning.  In such a case, the `akashacms-breadcrumbs` plugin can give you a useful breadcrumb trail.
 
-```
+```html
 <div class="row">
   <section id="category-tags" class="col-sm-12">
     By: <author-link></author-link>;
@@ -147,7 +162,7 @@ It's useful (perhaps) to organize the content documents in a directory structure
 
 This is meant to be an attribution line, listing the author, the publication date, and category tags.  A common feature of blogs is "tags".  The `akashacms-tagged-content` plugin makes tagging easy.
 
-```
+```html
 <section id="right" class="col-sm-2">
   <tag-cloud/>
 </section>
@@ -156,7 +171,7 @@ This is meant to be an attribution line, listing the author, the publication dat
 That module gives us a useful Tag Cloud (well, it's debatable whether tag clouds are all that useful) we can stick in a sidebar.
 
 
-```
+```html
 <blog-next-prev></blog-next-prev>
 ```
 
@@ -164,7 +179,7 @@ This tag figures out the "next" and "previous" entries in the blog.  Remember th
 
 The `blog-next-prev` tag lists two links, to the Next and Previous entries in the blog.  That way the reader could read the entire blog by repeatedly clicking on one or the other of those links.  The `blog-next-prev.html.ejs` template is used in case you want to override the presentation.  
 
-```
+```html
 <partial file-name='disqus.html'></partial>
 ```
 
@@ -176,7 +191,7 @@ It's useful to have an index page for the blog.  Historically blogs have been pr
 
 See: https://github.com/akashacms/akashacms-blog-skeleton/blob/akasharender/layouts/index-blog.html.ejs for an example.
 
-```
+```html
 <blog-news-river maxentries="100"></blog-news-river>
 ```
 
@@ -186,7 +201,7 @@ As the name of this tag implies, it produces the River of News format (by defaul
 * `template` Changes the template to use.  By default this is `blog-news-river.html.ejs`.  If you want to change the layout, you can either override this template, or you can specify a template using this attribute.
 
 
-```
+```html
 <blog-rss-icon></blog-rss-icon>
 ```
 
@@ -200,7 +215,7 @@ For example the blog-skeleton home page shows two blog indexes, see: https://git
 
 We do this as follows:
 
-```
+```html
 <div id="blog-1-news">
     <div class="well well-sm"><h2>Blog #1</h2></div>
     <blog-news-river maxentries="20" blogtag="news" template="blog-river-thumbs.html.ejs"></blog-news-river>
