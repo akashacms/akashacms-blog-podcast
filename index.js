@@ -140,6 +140,7 @@ module.exports.mahabhutaArray = function(options) {
     ret.addMahafunc(new BlogNewsRiverElement());
     ret.addMahafunc(new BlogRSSIconElement());
     ret.addMahafunc(new BlogRSSLinkElement());
+    ret.addMahafunc(new BlogRSSListElement());
     ret.addMahafunc(new BlogNextPrevElement());
     ret.addMahafunc(new BlogNewsIndexElement());
     return ret;
@@ -355,6 +356,22 @@ class BlogRSSLinkElement extends mahabhuta.CustomElement {
 
         return akasha.partial(this.array.options.config, template, {
             feedUrl: blogcfg.rssurl
+        });
+    }
+}
+
+class BlogRSSListElement extends mahabhuta.CustomElement {
+    get elementName() { return "blog-feeds-all"; }
+    process($element, metadata, dirty) {
+        const template = $element.attr('template') 
+                ? $element.attr('template')
+                :  "blog-feeds-all.html.ejs";
+        const id = $element.attr('id');
+        const additionalClasses = $element.attr('additional-classes')
+        dirty();
+        return akasha.partial(this.array.options.config, template, {
+            id, additionalClasses,
+            bloglist: this.array.options.bloglist
         });
     }
 }

@@ -1,0 +1,7 @@
+<div <% if (typeof id !== 'undefined') { %>id="<%= id %>" <% } %> class="<%= additionalClasses %>">
+<ul>
+    <% for (var blogtag in bloglist) { %>
+        <li><blog-rss-icon blogtag="<%= blogtag %>"></blog-rss-icon> <%= bloglist[blogtag].rss.title %>: <%= bloglist[blogtag].rss.description %></li>
+    <% } %>
+</ul>
+</div>
