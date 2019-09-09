@@ -11,7 +11,7 @@
     "type": "git",
     "url": "git://github.com/akashacms/akashacms-blog-podcast.git"
   },
-  "version": "0.7.3",
+  "version": "0.7.4",
   "engines": {
     "node": ">=12.2"
   },
