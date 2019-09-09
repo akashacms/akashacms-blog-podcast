@@ -11,7 +11,7 @@
     "build-skeleton": "cd akashacms-blog-skeleton && npm run build",
     "clean": "rm -rf node_modules out akashacms-blog-skeleton"
   },
-  "author": "David Herron <david@davidherron.com>nv",
+  "author": "David Herron <david@davidherron.com>",
   "license": "ISC",
   "dependencies": {
     "chai": "^4.1.2",
