@@ -62,6 +62,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     }
 
     async onSiteRendered(config) {
+        const plugin = this;
         const tasks = [];
         for (var blogkey in this.options.bloglist) {
             if (!this.options.bloglist.hasOwnProperty(blogkey)) {
@@ -73,7 +74,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         await Promise.all(tasks.map(async blogcfg => {
             // console.log(`blog-podcast blogcfg ${util.inspect(blogcfg)}`);
             const taskStart = new Date();
-            var documents = await findBlogDocs(config, undefined, blogcfg);
+            var documents = await plugin.findBlogDocs(config, blogcfg);
             var count = 0;
             var documents2 = documents.filter(doc => {
                 if (typeof blogcfg.maxEntries === "undefined"
@@ -133,6 +134,102 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             console.log(`GENERATED RSS ${feed_url.toString()} rssitems # ${rssitems.length} in ${(taskEnd - taskStart) / 1000}`)
         }));
     }
+
+    /**
+     *
+        blogPodcast: {
+            "news": {
+                rss: {
+                    title: "AkashaCMS News",
+                    description: "Announcements and news about the AkashaCMS content management system",
+                    site_url: "http://akashacms.com/news/index.html",
+                    image_url: "http://akashacms.com/logo.gif",
+                    managingEditor: 'David Herron',
+                    webMaster: 'David Herron',
+                    copyright: '2015 David Herron',
+                    language: 'en',
+                    categories: [ "Node.js", "Content Management System", "HTML5", "Static website generator" ]
+                },
+                rssurl: "/news/rss.xml",
+                matchers: {
+                    layouts: [ "blog.html.ejs" ],
+                    path: /^news\//
+                }
+            },
+
+            "howto": {
+                rss: {
+                    title: "AkashaCMS Tutorials",
+                    description: "Tutorials about using the AkashaCMS content management system",
+                    site_url: "http://akashacms.com/howto/index.html",
+                    image_url: "http://akashacms.com/logo.gif",
+                    managingEditor: 'David Herron',
+                    webMaster: 'David Herron',
+                    copyright: '2015 David Herron',
+                    language: 'en',
+                    categories: [ "Node.js", "Content Management System", "HTML5", "HTML5", "Static website generator" ]
+                },
+                rssurl: "/howto/rss.xml",
+                matchers: {
+                    layouts: [ "blog.html.ejs" ],
+                    path: /^howto\//
+                }
+            }
+        },
+    *
+    */
+    async findBlogDocs(config, blogcfg) {
+
+        if (!blogcfg || !blogcfg.matchers) {
+            throw new Error(`findBlogDocs no blogcfg`);
+        }
+
+        var documents = await akasha.documentSearch(config, {
+            // rootPath: docDirPath,
+            pathmatch: blogcfg.matchers.path ? blogcfg.matchers.path : undefined,
+            renderers: [ akasha.HTMLRenderer ],
+            layouts: blogcfg.matchers.layouts ? blogcfg.matchers.layouts : undefined,
+            rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
+        });
+
+        // for (let document of documents) {
+        //    console.log(`findBlogDocs blog doc ${document.docpath} ${document.metadata.layout} ${document.metadata.publicationDate}`);
+        // }
+
+        // console.log('findBlogDocs '+ util.inspect(documents));
+        documents.sort((a, b) => {
+            var aPublicationDate = Date.parse(
+                a.metadata.publicationDate ? a.metadata.publicationDate : a.stat.mtime
+            );
+            var bPublicationDate = Date.parse(
+                b.metadata.publicationDate ? b.metadata.publicationDate : b.stat.mtime
+            );
+            if (aPublicationDate < bPublicationDate) return -1;
+            else if (aPublicationDate === bPublicationDate) return 0;
+            else return 1;
+        });
+        // for (let document of documents) {
+        //    console.log(`findBlogDocs blog doc sorted  ${document.docpath} ${document.metadata.layout} ${document.metadata.publicationDate}`);
+        // }
+        documents.reverse();
+        // for (let document of documents) {
+        //    console.log(`findBlogDocs blog doc reversed  ${document.docpath} ${document.metadata.layout} ${document.metadata.publicationDate}`);
+        // }
+
+        return documents;
+    }
+
+    async findBlogIndexes(config, blogcfg) {
+        if (!blogcfg.indexmatchers) return [];
+
+        return await akasha.documentSearch(config, {
+            pathmatch: blogcfg.indexmatchers.path ? blogcfg.indexmatchers.path : undefined,
+            renderers: [ akasha.HTMLRenderer ],
+            layouts: blogcfg.indexmatchers.layouts ? blogcfg.indexmatchers.layouts : undefined,
+            rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
+        });
+    }
+
 }
 
 module.exports.mahabhutaArray = function(options) {
@@ -146,89 +243,6 @@ module.exports.mahabhutaArray = function(options) {
     return ret;
 };
 
-/**
- *
-	blogPodcast: {
-		"news": {
-			rss: {
-				title: "AkashaCMS News",
-				description: "Announcements and news about the AkashaCMS content management system",
-				site_url: "http://akashacms.com/news/index.html",
-				image_url: "http://akashacms.com/logo.gif",
-				managingEditor: 'David Herron',
-				webMaster: 'David Herron',
-				copyright: '2015 David Herron',
-				language: 'en',
-				categories: [ "Node.js", "Content Management System", "HTML5", "Static website generator" ]
-			},
-			rssurl: "/news/rss.xml",
-			matchers: {
-				layouts: [ "blog.html.ejs" ],
-				path: /^news\//
-			}
-		},
-
-		"howto": {
-			rss: {
-				title: "AkashaCMS Tutorials",
-				description: "Tutorials about using the AkashaCMS content management system",
-				site_url: "http://akashacms.com/howto/index.html",
-				image_url: "http://akashacms.com/logo.gif",
-				managingEditor: 'David Herron',
-				webMaster: 'David Herron',
-				copyright: '2015 David Herron',
-				language: 'en',
-				categories: [ "Node.js", "Content Management System", "HTML5", "HTML5", "Static website generator" ]
-			},
-			rssurl: "/howto/rss.xml",
-			matchers: {
-				layouts: [ "blog.html.ejs" ],
-				path: /^howto\//
-			}
-		}
-	},
- *
- */
-var findBlogDocs = async function(config, metadata, blogcfg) {
-
-    if (!blogcfg || !blogcfg.matchers) {
-        throw new Error(`findBlogDocs no blogcfg for ${util.inspect(metadata.document)}`);
-    }
-
-    var documents = await akasha.documentSearch(config, {
-        // rootPath: docDirPath,
-        pathmatch: blogcfg.matchers.path ? blogcfg.matchers.path : undefined,
-        renderers: [ akasha.HTMLRenderer ],
-        layouts: blogcfg.matchers.layouts ? blogcfg.matchers.layouts : undefined,
-        rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
-    });
-
-    // console.log('findBlogDocs '+ util.inspect(documents));
-    documents.sort((a, b) => {
-        var aPublicationDate = Date.parse(
-            a.metadata.publicationDate ? a.metadata.publicationDate : a.stat.mtime
-        );
-        var bPublicationDate = Date.parse(
-            b.metadata.publicationDate ? b.metadata.publicationDate : b.stat.mtime
-        );
-        if (aPublicationDate < bPublicationDate) return -1;
-        else if (aPublicationDate === bPublicationDate) return 0;
-        else return 1;
-    });
-    documents.reverse();
-    return documents;
-};
-
-function findBlogIndexes(config, metadata, blogcfg) {
-    if (!blogcfg.indexmatchers) return Promise.resolve([]);
-
-    return akasha.documentSearch(config, {
-        pathmatch: blogcfg.indexmatchers.path ? blogcfg.indexmatchers.path : undefined,
-        renderers: [ akasha.HTMLRenderer ],
-        layouts: blogcfg.indexmatchers.layouts ? blogcfg.indexmatchers.layouts : undefined,
-        rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
-    });
-}
 
 class BlogNewsRiverElement extends mahabhuta.CustomElement {
     get elementName() { return "blog-news-river"; }
@@ -267,7 +281,7 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
             _blogcfg.rootPath = path.dirname(docRootPath);
         }
 
-        var documents = await findBlogDocs(this.array.options.config, metadata, _blogcfg);
+        var documents = await this.array.options.config.plugin(pluginName).findBlogDocs(this.array.options.config, _blogcfg);
 
         // log('blog-news-river documents '+ util.inspect(documents));
 
@@ -305,7 +319,7 @@ class BlogNewsIndexElement extends mahabhuta.CustomElement {
         var template = $element.attr("template");
         if (!template) template = "blog-news-indexes.html.ejs";
 
-        let indexDocuments = await findBlogIndexes(this.array.options.config, metadata, blogcfg);
+        let indexDocuments = await this.array.options.config.plugin(pluginName).findBlogIndexes(this.array.options.config, blogcfg);
         return akasha.partial(this.array.options.config, template, { indexDocuments });
     }
 }
@@ -384,7 +398,7 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
         if (!blogcfg) throw new Error(`No blog configuration found for blogtag ${metadata.blogtag} in ${metadata.document.path}`);
 
         let docpathNoSlash = metadata.document.path.startsWith('/') ? metadata.document.path.substring(1) : metadata.document.path;
-        let documents = await findBlogDocs(this.array.options.config, metadata, blogcfg);
+        let documents = await this.array.options.config.plugin(pluginName).findBlogDocs(this.array.options.config, blogcfg);
 
         let docIndex = -1;
         for (var j = 0; docIndex === -1 && j < documents.length; j++) {
