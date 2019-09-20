@@ -197,17 +197,26 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         // }
 
         // console.log('findBlogDocs '+ util.inspect(documents));
+        let dateErrors = [];
         documents.sort((a, b) => {
-            var aPublicationDate = Date.parse(
-                a.metadata.publicationDate ? a.metadata.publicationDate : a.stat.mtime
-            );
-            var bPublicationDate = Date.parse(
-                b.metadata.publicationDate ? b.metadata.publicationDate : b.stat.mtime
-            );
+            let publA = a.metadata.publicationDate ? a.metadata.publicationDate : a.stat.mtime;
+            let aPublicationDate = Date.parse(publA);
+            if (isNaN(aPublicationDate)) {
+                dateErrors.push(`findBlogDocs ${a.renderpath} BAD DATE publA ${publA}`);
+            }
+            let publB = b.metadata.publicationDate ? b.metadata.publicationDate : b.stat.mtime;
+            let bPublicationDate = Date.parse(publB);
+            // console.log(`findBlogDocs publA ${publA} aPublicationDate ${aPublicationDate} publB ${publB} bPublicationDate ${bPublicationDate}`);
+            if (isNaN(bPublicationDate)) {
+                dateErrors.push(`findBlogDocs ${b.renderpath} BAD DATE publB ${publB}`);
+            }
             if (aPublicationDate < bPublicationDate) return -1;
             else if (aPublicationDate === bPublicationDate) return 0;
             else return 1;
         });
+        if (dateErrors.length >= 1) {
+            throw dateErrors;
+        }
         // for (let document of documents) {
         //    console.log(`findBlogDocs blog doc sorted  ${document.docpath} ${document.metadata.layout} ${document.metadata.publicationDate}`);
         // }
