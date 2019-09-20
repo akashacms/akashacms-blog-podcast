@@ -12,7 +12,7 @@
     "url": "git://github.com/akashacms/akashacms-blog-podcast.git"
   },
   "bin": {
-    "akasharender": "cli.js"
+    "akashacms-blog-podcast": "cli.js"
   },
   "version": "0.7.5",
   "engines": {
