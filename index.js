@@ -86,7 +86,13 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 
             var rssitems = documents2.map(doc => {
                 let u = new URL(config.root_url);
-                u.pathname = doc.renderpath;
+                // Accommodate when root_url is something like
+                //   http://example.com/foo/bar/
+                // This generates a URL for the blog entry that includes the
+                // domain for the website.  But in some cases the generated 
+                // content lands in a subdirectory.
+                u.pathname = path.normalize(path.join(u.pathname, doc.renderpath));
+                // console.log(`rss item ${config.root_url} ${doc.renderpath} ==> ${u.toString()}`);
                 return {
                     title: doc.metadata.title,
                     description: doc.metadata.teaser ? doc.metadata.teaser : "",
@@ -122,7 +128,8 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             // console.log(`GENERATE RSS ${config.renderDestination + blogcfg.rssurl} ${util.inspect(rssitems)}`);
 
             let feed_url = new URL(config.root_url);
-            feed_url.pathname = blogcfg.rssurl;
+            feed_url.pathname = path.normalize(path.join(feed_url.pathname, blogcfg.rssurl));
+            // console.log(`generateRSS ${config.root_url} ${blogcfg.rssurl} ==> ${feed_url.toString()}`);
             await akasha.generateRSS(config, blogcfg, {
                     feed_url: feed_url.toString(),
                     pubDate: new Date()
