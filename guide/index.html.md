@@ -29,7 +29,7 @@ With that in mind, let's go over the requirements for a blog/podcast AkashaCMS p
 Assuming you have a working AkashaCMS site, run this command:
 
 ```
-$ npm install akashacms-blog-podcast --save
+$ npm install @akashacms/plugins-blog-podcast --save
 ```
 
 This installs the plugin, and automatically adds it to the `dependencies` in `package.json`
@@ -39,7 +39,7 @@ In the `config.js` (again, the AkashaRender style of `config.js`) add this:
 ```js
 config
     ...
-    .use(require('akashacms-blog-podcast'), {
+    .use(require('@akashacms/plugins-blog-podcast'), {
         bloglist: {
             // blog definitions
         }
@@ -55,7 +55,7 @@ The blog-skeleton site has a full working `config.js`:  https://github.com/akash
 
 The content for a given blog or podcast is defined by a search through the documents.  The documents matching the search parameters are part of the given blog/podcast.  We'll go over defining the search parameters later.
 
-Remember the `akashacms-blog-podcast` plugin supports multiple blog/podcast instances per site.  Each blog/podcast is defined by an object describing its parameters.  The object describes not only the search parameters defining the blog/podcast contents, but also the metadata advertised in the RSS feed.
+Remember the `@akashacms/plugins-blog-podcast` plugin supports multiple blog/podcast instances per site.  Each blog/podcast is defined by an object describing its parameters.  The object describes not only the search parameters defining the blog/podcast contents, but also the metadata advertised in the RSS feed.
 
 The plugin only supports RSS, not Atom.  It's unfortunately true that the plugin doesn't actually support Podcasts, because the need hasn't been there to follow through with the intention to support both in the same plugin.
 
@@ -64,7 +64,7 @@ This comes from `akashacms-blog-skeleton`
 ```js
 config
     ...
-    .use(require('akashacms-blog-podcast'), {
+    .use(require('@akashacms/plugins-blog-podcast'), {
         bloglist: {
             news: {
                 rss: {
@@ -89,7 +89,7 @@ config
     })
 ```
 
-The `options` object for `akashacms-blog-podcast` is the list of blogs to be configured for this website.  The `bloglist` object contains entries where the _key_ (in this case `news`) is the _blogtag_, and the value is the configuration for the blog.
+The `options` object for `@akashacms/plugins-blog-podcast` is the list of blogs to be configured for this website.  The `bloglist` object contains entries where the _key_ (in this case `news`) is the _blogtag_, and the value is the configuration for the blog.
 
 The _blogtag_ can be thought of as a short name for the blog.  It is used in several places, such as in the header of articles that are part of the blog.  A document will have this header to identify which blog it is part of:
 
@@ -116,7 +116,7 @@ The RSS file will contain those documents, using a short prefix of each document
 
 # Custom tags and Layouts
 
-The `akashacms-blog-podcast` plugin provides multiple custom tags that are useful for constructing elements of a blog post or blog index.  The blog-skeleton contains examples of typical page layouts.  You're of course free to develop your own page layout.  
+The `@akashacms/plugins-blog-podcast` plugin provides multiple custom tags that are useful for constructing elements of a blog post or blog index.  The blog-skeleton contains examples of typical page layouts.  You're of course free to develop your own page layout.  
 
 The content documents contained in the blog/podcast must all include one metadata/frontmatter entry, `blogtag`, where the value is the `blogtag` value given above.  Here's an example:
 

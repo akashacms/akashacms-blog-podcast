@@ -24,7 +24,7 @@ const url      = require('url');
 const akasha   = require('akasharender');
 const mahabhuta = akasha.mahabhuta;
 
-const pluginName = "akashacms-blog-podcast";
+const pluginName = "@akashacms/plugins-blog-podcast";
 
 const _plugin_config = Symbol('config');
 const _plugin_options = Symbol('options');

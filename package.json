@@ -4,7 +4,7 @@
     "email": "david@davidherron.com",
     "url": "http://davidherron.com"
   },
-  "name": "akashacms-blog-podcast",
+  "name": "@akashacms/plugins-blog-podcast",
   "description": "A plugin for AkashaCMS to create blogs & podcasts within a site",
   "homepage": "http://akashacms.com/plugins/blog-podcast.html",
   "repository": {
@@ -14,7 +14,7 @@
   "bin": {
     "akashacms-blog-podcast": "cli.js"
   },
-  "version": "0.7.7",
+  "version": "0.7.8",
   "engines": {
     "node": ">=12.2"
   },
