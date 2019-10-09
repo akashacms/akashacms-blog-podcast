@@ -7,7 +7,7 @@
     "test": "cd akashacms-blog-skeleton && npm run test",
     "setup": "npm install && npm run clone-skeleton && npm run update-skeleton-code",
     "clone-skeleton": "rm -rf akashacms-blog-skeleton && git clone https://github.com/akashacms/akashacms-blog-skeleton && cd akashacms-blog-skeleton && npm install",
-    "update-skeleton-code": "cp ../*.js akashacms-blog-skeleton/node_modules/akashacms-blog-podcast && cp ../partials/* akashacms-blog-skeleton/node_modules/akashacms-blog-podcast/partials",
+    "update-skeleton-code": "cp ../*.js akashacms-blog-skeleton/node_modules/@akashacms/plugins-blog-podcast && cp ../partials/* akashacms-blog-skeleton/node_modules/@akashacms/plugins-blog-podcast/partials",
     "build-skeleton": "cd akashacms-blog-skeleton && npm run build",
     "clean": "rm -rf node_modules out akashacms-blog-skeleton"
   },
