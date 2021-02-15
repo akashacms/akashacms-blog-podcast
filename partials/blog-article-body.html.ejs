@@ -1,0 +1,10 @@
+<article class="h-entry  akashacms-blog-article-body">
+  <h1 class="p-name"><%= postTitle %></h1>
+  <p>Published by <a class="p-author h-card" href="<%= authorURL %>"><%= authorName %></a>
+     on <time class="dt-published" datetime="<%= publishedDateTime %>"><%= publishedDate %></time></p>
+ 
+  <p class="p-summary"><%- teaser %></p>
+  <div class="e-content">
+    <%- content %>
+  </div>
+</article>
