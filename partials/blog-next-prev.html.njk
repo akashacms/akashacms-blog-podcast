@@ -1,0 +1,8 @@
+<div class="blog-prev-next-wrapper">
+    <a class="blog-prev-link" style="padding: 15px;"
+        href="/{{ prevDoc.renderPath | safe }}">
+        <span style="float: left">&laquo;&laquo;&laquo;&laquo;&laquo;&laquo; {{ prevDoc.docMetadata.title | safe }}</span></a>
+    <a class="blog-next-link" style="padding: 15px;" 
+        href="/{{ nextDoc.renderPath | safe }}">
+        <span style="float: right">{{ nextDoc.docMetadata.title | safe }} &raquo;&raquo;&raquo;&raquo;&raquo;&raquo;</span></a>
+</div>

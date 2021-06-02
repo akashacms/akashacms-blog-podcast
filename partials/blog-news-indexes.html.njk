@@ -1,0 +1,7 @@
+<div class="blog-indexes">
+    {{ for doc of indexDocuments }}
+        <a href="/{{ doc.renderPath | safe }}">
+            <h4>{{ doc.docMetadata.title | safe }}</h4></a>
+        <span>{{ doc.docMetadata.teaser | safe }}</span>
+    {{ endfor }}
+</div>

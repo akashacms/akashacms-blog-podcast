@@ -91,13 +91,17 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
                 // This generates a URL for the blog entry that includes the
                 // domain for the website.  But in some cases the generated 
                 // content lands in a subdirectory.
-                u.pathname = path.normalize(path.join(u.pathname, doc.renderpath));
+                u.pathname = path.normalize(
+                        path.join('/', doc.renderPath));
                 // console.log(`rss item ${config.root_url} ${doc.renderpath} ==> ${u.toString()}`);
                 return {
-                    title: doc.metadata.title,
-                    description: doc.metadata.teaser ? doc.metadata.teaser : "",
+                    title: doc.docMetadata.title,
+                    description: doc.docMetadata.teaser
+                            ? doc.docMetadata.teaser : "",
                     url: u.toString(),
-                    date: doc.metadata.publicationDate ? doc.metadata.publicationDate : doc.stat.mtime
+                    date: doc.docMetadata.publicationDate
+                            ? doc.docMetadata.publicationDate
+                            : doc.stat.mtime
                 };
             });
 
@@ -128,7 +132,8 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             // console.log(`GENERATE RSS ${config.renderDestination + blogcfg.rssurl} ${util.inspect(rssitems)}`);
 
             let feed_url = new URL(config.root_url);
-            feed_url.pathname = path.normalize(path.join(feed_url.pathname, blogcfg.rssurl));
+            feed_url.pathname = path.normalize(
+                    path.join(feed_url.pathname, blogcfg.rssurl));
             // console.log(`generateRSS ${config.root_url} ${blogcfg.rssurl} ==> ${feed_url.toString()}`);
             await akasha.generateRSS(config, blogcfg, {
                     feed_url: feed_url.toString(),
@@ -191,27 +196,54 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             throw new Error(`findBlogDocs no blogcfg`);
         }
 
-        var documents = await akasha.documentSearch(config, {
-            // rootPath: docDirPath,
-            pathmatch: blogcfg.matchers.path ? blogcfg.matchers.path : undefined,
-            renderers: [ akasha.HTMLRenderer ],
-            layouts: blogcfg.matchers.layouts ? blogcfg.matchers.layouts : undefined,
-            rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
-        });
+        const options = {};
+        if (blogcfg.matchers && blogcfg.matchers.path) {
+            if (blogcfg.matchers.path instanceof RegExp) {
+                options.pathmatch = blogcfg.matchers.path;
+            } else if (typeof blogcfg.matchers.path === 'string') {
+                options.pathmatch = new RegExp(blogcfg.matchers.path);
+            } else {
+                throw new Error(`Incorrect setting for blogcfg.matchers.path ${util.inspect(blogcfg.matchers.path)}`);
+            }
+        }
+        if (blogcfg.matchers && blogcfg.matchers.glob) {
+            if (typeof blogcfg.matchers.glob === 'string') {
+                options.glob = blogcfg.matchers.glob;
+            } else {
+                throw new Error(`Incorrect setting for blogcfg.matchers.glob ${util.inspect(blogcfg.matchers.glob)}`);
+            }
+        }
+        if (blogcfg.matchers && blogcfg.matchers.layouts) {
+            if (typeof blogcfg.matchers.layouts === 'string'
+             || Array.isArray(blogcfg.matchers.layouts)) {
+                options.layouts = blogcfg.matchers.layouts;
+            } else {
+                throw new Error(`Incorrect setting for blogcfg.matchers.layouts ${util.inspect(blogcfg.matchers.layouts)}`);
+            }
+        }
+        if (typeof blogcfg.rootPath === 'string') {
+            options.rootPath = blogcfg.rootPath;
+        } else if (blogcfg.rootPath) {
+            throw new Error(`Incorrect setting for blogcfg.rootPath ${util.inspect(blogcfg.rootPath)}`);
+        }
+        // Do not set renderers
+        const documents = await akasha.documentSearch(config, options);
 
-        // for (let document of documents) {
-        //    console.log(`findBlogDocs blog doc ${document.docpath} ${document.metadata.layout} ${document.metadata.publicationDate}`);
-        // }
+        /* console.log(`findBlogDocs found ${documents.length} documents`);
+        for (let document of documents) {
+            console.log(`findBlogDocs blog doc ${document.path} ${document.docMetadata.layout} ${document.docMetadata.publicationDate}`);
+        } */
 
         // console.log('findBlogDocs '+ util.inspect(documents));
         let dateErrors = [];
         documents.sort((a, b) => {
-            let publA = a.metadata.publicationDate ? a.metadata.publicationDate : a.stat.mtime;
+            // console.log(a);
+            let publA = a.docMetadata && a.docMetadata.publicationDate ? a.docMetadata.publicationDate : a.stats.mtime;
             let aPublicationDate = Date.parse(publA);
             if (isNaN(aPublicationDate)) {
                 dateErrors.push(`findBlogDocs ${a.renderpath} BAD DATE publA ${publA}`);
             }
-            let publB = b.metadata.publicationDate ? b.metadata.publicationDate : b.stat.mtime;
+            let publB = b.docMetadata && b.docMetadata.publicationDate ? b.docMetadata.publicationDate : b.stats.mtime;
             let bPublicationDate = Date.parse(publB);
             // console.log(`findBlogDocs publA ${publA} aPublicationDate ${aPublicationDate} publB ${publB} bPublicationDate ${bPublicationDate}`);
             if (isNaN(bPublicationDate)) {
@@ -240,7 +272,8 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 
         return await akasha.documentSearch(config, {
             pathmatch: blogcfg.indexmatchers.path ? blogcfg.indexmatchers.path : undefined,
-            renderers: [ akasha.HTMLRenderer ],
+            // renderers: [ akasha.HTMLRenderer ],
+            glob: '**/*.html',
             layouts: blogcfg.indexmatchers.layouts ? blogcfg.indexmatchers.layouts : undefined,
             rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
         });
@@ -413,20 +446,33 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
         let blogcfg = this.array.options.bloglist[metadata.blogtag];
         if (!blogcfg) throw new Error(`No blog configuration found for blogtag ${metadata.blogtag} in ${metadata.document.path}`);
 
-        let docpathNoSlash = metadata.document.path.startsWith('/') ? metadata.document.path.substring(1) : metadata.document.path;
-        let documents = await this.array.options.config.plugin(pluginName).findBlogDocs(this.array.options.config, blogcfg);
+        let docpathNoSlash = metadata.document.path.startsWith('/')
+                        ? metadata.document.path.substring(1)
+                        : metadata.document.path;
+        let documents = await this.array.options.config
+                .plugin(pluginName)
+                .findBlogDocs(this.array.options.config, blogcfg);
 
         let docIndex = -1;
-        for (var j = 0; docIndex === -1 && j < documents.length; j++) {
+        let j = 0;
+        for (let j = 0; j < documents.length; j++) {
             let document = documents[j];
             // console.log(`blog-next-prev findBlogDocs blogtag ${util.inspect(metadata.blogtag)} found ${document.basedir} ${document.docpath} ${document.docfullpath} ${document.renderpath}  MATCHES? ${docpathNoSlash}  ${metadata.document.path}`);
-            if (path.normalize(document.docdestpath) === path.normalize(docpathNoSlash)) {
+            // console.log(`BlogNextPrevElement ${path.normalize(document.path)} === ${path.normalize(docpathNoSlash)}`);
+            if (path.normalize(document.path) === path.normalize(docpathNoSlash)) {
                 docIndex = j;
             }
         }
+        // console.log(`BlogNextPrevElement docIndex ${docIndex}`);
         if (docIndex >= 0) {
-            let prevDoc = docIndex === 0 ? documents[documents.length - 1] : documents[docIndex - 1];
-            let nextDoc = docIndex === documents.length - 1 ? documents[0] : documents[docIndex + 1];
+            let prevDoc = docIndex === 0
+                ? documents[documents.length - 1]
+                : documents[docIndex - 1];
+            let nextDoc = docIndex === documents.length - 1
+                ? documents[0]
+                : documents[docIndex + 1];
+            // console.log(`prevDoc ${docIndex} ${prevDoc.renderPath} ${prevDoc.docMetadata.title}`);
+            // console.log(`nextDoc ${docIndex} ${nextDoc.renderPath} ${nextDoc.docMetadata.title}`);
             let html = await akasha.partial(this.array.options.config, 'blog-next-prev.html.ejs', {
                 prevDoc, nextDoc
             });
