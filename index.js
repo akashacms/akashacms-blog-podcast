@@ -470,7 +470,7 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
                 docIndex = j;
             }
         }
-        console.log(`BlogNextPrevElement docIndex ${docIndex}`);
+        // console.log(`BlogNextPrevElement docIndex ${docIndex}`);
         if (docIndex >= 0) {
             let prevDoc = docIndex === 0
                 ? documents[documents.length - 1]
