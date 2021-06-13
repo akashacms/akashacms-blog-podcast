@@ -227,7 +227,8 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             throw new Error(`Incorrect setting for blogcfg.rootPath ${util.inspect(blogcfg.rootPath)}`);
         }
         // Do not set renderers
-        const documents = await akasha.documentSearch(config, options);
+        const documents = (await akasha.filecache).documents.search(config, options);
+        // const documents = await akasha.documentSearch(config, options);
 
         /* console.log(`findBlogDocs found ${documents.length} documents`);
         for (let document of documents) {
@@ -241,13 +242,13 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             let publA = a.docMetadata && a.docMetadata.publicationDate ? a.docMetadata.publicationDate : a.stats.mtime;
             let aPublicationDate = Date.parse(publA);
             if (isNaN(aPublicationDate)) {
-                dateErrors.push(`findBlogDocs ${a.renderpath} BAD DATE publA ${publA}`);
+                dateErrors.push(`findBlogDocs ${a.renderPath} BAD DATE publA ${publA}`);
             }
             let publB = b.docMetadata && b.docMetadata.publicationDate ? b.docMetadata.publicationDate : b.stats.mtime;
             let bPublicationDate = Date.parse(publB);
             // console.log(`findBlogDocs publA ${publA} aPublicationDate ${aPublicationDate} publB ${publB} bPublicationDate ${bPublicationDate}`);
             if (isNaN(bPublicationDate)) {
-                dateErrors.push(`findBlogDocs ${b.renderpath} BAD DATE publB ${publB}`);
+                dateErrors.push(`findBlogDocs ${b.renderPath} BAD DATE publB ${publB}`);
             }
             if (aPublicationDate < bPublicationDate) return -1;
             else if (aPublicationDate === bPublicationDate) return 0;
