@@ -227,6 +227,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             throw new Error(`Incorrect setting for blogcfg.rootPath ${util.inspect(blogcfg.rootPath)}`);
         }
         // Do not set renderers
+        // console.log(`findBlogDocs `, options);
         const documents = (await akasha.filecache).documents.search(config, options);
         // const documents = await akasha.documentSearch(config, options);
 
@@ -262,7 +263,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         // }
         documents.reverse();
         // for (let document of documents) {
-        //    console.log(`findBlogDocs blog doc reversed  ${document.docpath} ${document.metadata.layout} ${document.metadata.publicationDate}`);
+        //    console.log(`findBlogDocs blog doc reversed  ${document.docpath} ${document.docMetadata.layout} ${document.docMetadata.publicationDate}`);
         // }
 
         return documents;
@@ -331,7 +332,8 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
             _blogcfg.rootPath = path.dirname(docRootPath);
         }
 
-        var documents = await this.array.options.config.plugin(pluginName).findBlogDocs(this.array.options.config, _blogcfg);
+        var documents = await this.array.options.config.plugin(pluginName)
+                    .findBlogDocs(this.array.options.config, _blogcfg);
 
         // log('blog-news-river documents '+ util.inspect(documents));
 
@@ -369,8 +371,11 @@ class BlogNewsIndexElement extends mahabhuta.CustomElement {
         var template = $element.attr("template");
         if (!template) template = "blog-news-indexes.html.ejs";
 
-        let indexDocuments = await this.array.options.config.plugin(pluginName).findBlogIndexes(this.array.options.config, blogcfg);
-        return akasha.partial(this.array.options.config, template, { indexDocuments });
+        let indexDocuments = await this.array.options.config.plugin(pluginName)
+                .findBlogIndexes(this.array.options.config, blogcfg);
+        return akasha.partial(this.array.options.config, template, {
+                    indexDocuments
+                });
     }
 }
 
@@ -454,17 +459,18 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
                 .plugin(pluginName)
                 .findBlogDocs(this.array.options.config, blogcfg);
 
+        // console.log(`BlogNextPrevElement findBlogDocs found ${documents.length} items`);
         let docIndex = -1;
         let j = 0;
         for (let j = 0; j < documents.length; j++) {
             let document = documents[j];
             // console.log(`blog-next-prev findBlogDocs blogtag ${util.inspect(metadata.blogtag)} found ${document.basedir} ${document.docpath} ${document.docfullpath} ${document.renderpath}  MATCHES? ${docpathNoSlash}  ${metadata.document.path}`);
-            // console.log(`BlogNextPrevElement ${path.normalize(document.path)} === ${path.normalize(docpathNoSlash)}`);
-            if (path.normalize(document.path) === path.normalize(docpathNoSlash)) {
+            // console.log(`BlogNextPrevElement ${path.normalize(document.vpath)} === ${path.normalize(docpathNoSlash)}`);
+            if (path.normalize(document.vpath) === path.normalize(docpathNoSlash)) {
                 docIndex = j;
             }
         }
-        // console.log(`BlogNextPrevElement docIndex ${docIndex}`);
+        console.log(`BlogNextPrevElement docIndex ${docIndex}`);
         if (docIndex >= 0) {
             let prevDoc = docIndex === 0
                 ? documents[documents.length - 1]
