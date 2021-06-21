@@ -192,6 +192,9 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     */
     async findBlogDocs(config, blogcfg) {
 
+        // Performance testing
+        // const _start = new Date();
+
         if (!blogcfg || !blogcfg.matchers) {
             throw new Error(`findBlogDocs no blogcfg`);
         }
@@ -204,6 +207,15 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
                 options.pathmatch = new RegExp(blogcfg.matchers.path);
             } else {
                 throw new Error(`Incorrect setting for blogcfg.matchers.path ${util.inspect(blogcfg.matchers.path)}`);
+            }
+        }
+        if (blogcfg.matchers && blogcfg.matchers.renderpath) {
+            if (blogcfg.matchers.renderpath instanceof RegExp) {
+                options.renderpathmatch = blogcfg.matchers.renderpath;
+            } else if (typeof blogcfg.matchers.path === 'string') {
+                options.renderpathmatch = new RegExp(blogcfg.matchers.renderpath);
+            } else {
+                throw new Error(`Incorrect setting for blogcfg.matchers.renderpath ${util.inspect(blogcfg.matchers.renderpath)}`);
             }
         }
         if (blogcfg.matchers && blogcfg.matchers.glob) {
@@ -226,26 +238,39 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         } else if (blogcfg.rootPath) {
             throw new Error(`Incorrect setting for blogcfg.rootPath ${util.inspect(blogcfg.rootPath)}`);
         }
+        // Performance testing
+        // console.log(`findBlogDocs ${blogcfg} options setup ${(new Date() - _start) / 1000} seconds`);
+
         // Do not set renderers
         // console.log(`findBlogDocs `, options);
-        const documents = (await akasha.filecache).documents.search(config, options);
-        // const documents = await akasha.documentSearch(config, options);
+        const _documents = (await akasha.filecache).documents.search(config, options);
+        // Performance testing
+        // console.log(`findBlogDocs ${blogcfg} after searching ${_documents.length} documents ${(new Date() - _start) / 1000} seconds`);
 
-        /* console.log(`findBlogDocs found ${documents.length} documents`);
-        for (let document of documents) {
-            console.log(`findBlogDocs blog doc ${document.path} ${document.docMetadata.layout} ${document.docMetadata.publicationDate}`);
-        } */
+        const documents = [];
+        for (let doc of _documents) {
+            documents.push(await (await akasha.filecache).documents.readDocument(doc));
+        }
+        for (let doc of documents) {
+            if (!doc.metadata) console.log(`findBlogDocs DID NOT FIND METADATA IN ${doc.vpath}`, doc);
+            if (!doc.stat) console.log(`findBlogDocs DID NOT FIND STAT IN ${doc.vpath}`, doc);
+        }
+
+        // Performance testing
+        // console.log(`findBlogDocs ${blogcfg} after newInitMetadata ${documents.length} documents ${(new Date() - _start) / 1000} seconds`);
 
         // console.log('findBlogDocs '+ util.inspect(documents));
         let dateErrors = [];
         documents.sort((a, b) => {
             // console.log(a);
-            let publA = a.docMetadata && a.docMetadata.publicationDate ? a.docMetadata.publicationDate : a.stats.mtime;
+            let publA = a.docMetadata && a.docMetadata.publicationDate 
+                    ? a.docMetadata.publicationDate : a.stat.mtime;
             let aPublicationDate = Date.parse(publA);
             if (isNaN(aPublicationDate)) {
                 dateErrors.push(`findBlogDocs ${a.renderPath} BAD DATE publA ${publA}`);
             }
-            let publB = b.docMetadata && b.docMetadata.publicationDate ? b.docMetadata.publicationDate : b.stats.mtime;
+            let publB = b.docMetadata && b.docMetadata.publicationDate 
+                    ? b.docMetadata.publicationDate : b.stat.mtime;
             let bPublicationDate = Date.parse(publB);
             // console.log(`findBlogDocs publA ${publA} aPublicationDate ${aPublicationDate} publB ${publB} bPublicationDate ${bPublicationDate}`);
             if (isNaN(bPublicationDate)) {
@@ -258,10 +283,16 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         if (dateErrors.length >= 1) {
             throw dateErrors;
         }
+        // Performance testing
+        // console.log(`findBlogDocs ${blogcfg} after sorting ${documents.length} documents ${(new Date() - _start) / 1000} seconds`);
+
         // for (let document of documents) {
         //    console.log(`findBlogDocs blog doc sorted  ${document.docpath} ${document.metadata.layout} ${document.metadata.publicationDate}`);
         // }
         documents.reverse();
+        // Performance testing
+        // console.log(`findBlogDocs ${blogcfg} after reversing ${documents.length} documents ${(new Date() - _start) / 1000} seconds`);
+
         // for (let document of documents) {
         //    console.log(`findBlogDocs blog doc reversed  ${document.docpath} ${document.docMetadata.layout} ${document.docMetadata.publicationDate}`);
         // }
@@ -448,6 +479,7 @@ class BlogRSSListElement extends mahabhuta.CustomElement {
 class BlogNextPrevElement extends mahabhuta.CustomElement {
     get elementName() { return "blog-next-prev"; }
     async process($element, metadata, dirty) {
+        // const _start = new Date();
         if (! metadata.blogtag) { return; }
         let blogcfg = this.array.options.bloglist[metadata.blogtag];
         if (!blogcfg) throw new Error(`No blog configuration found for blogtag ${metadata.blogtag} in ${metadata.document.path}`);
@@ -459,7 +491,7 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
                 .plugin(pluginName)
                 .findBlogDocs(this.array.options.config, blogcfg);
 
-        // console.log(`BlogNextPrevElement findBlogDocs found ${documents.length} items`);
+        // console.log(`BlogNextPrevElement findBlogDocs found ${documents.length} items ${(new Date() - _start)/1000} seconds`);
         let docIndex = -1;
         let j = 0;
         for (let j = 0; j < documents.length; j++) {
@@ -483,6 +515,7 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
             let html = await akasha.partial(this.array.options.config, 'blog-next-prev.html.ejs', {
                 prevDoc, nextDoc
             });
+            // console.log(`BlogNextPrevElement findBlogDocs FINISH ${(new Date() - _start)/1000} seconds`);
             return html;
         } else {
             // console.error(`blog-next-prev did not find document ${docpathNoSlash} ${metadata.document.path} in blog`);
