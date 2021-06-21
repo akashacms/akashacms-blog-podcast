@@ -28,6 +28,7 @@ const pluginName = "@akashacms/plugins-blog-podcast";
 
 const _plugin_config = Symbol('config');
 const _plugin_options = Symbol('options');
+const _plugin_blogdocs = Symbol('blogdocs');
 
 module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     constructor() { super(pluginName); }
@@ -35,6 +36,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     configure(config, options) {
         this[_plugin_config] = config;
         this[_plugin_options] = options;
+        this[_plugin_blogdocs] = new Map();
         options.config = config;
 		config.addPartialsDir(path.join(__dirname, 'partials'));
         config.addMahabhuta(module.exports.mahabhutaArray(options));
@@ -43,6 +45,18 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 
     get config() { return this[_plugin_config]; }
     get options() { return this[_plugin_options]; }
+
+    blogdocs(tag) {
+        return this[_plugin_blogdocs].get(tag);
+    }
+
+    setBlogdocs(tag, docs) {
+        this[_plugin_blogdocs].set(tag, docs);
+    }
+
+    clearBlogdocs(tag) {
+        this[_plugin_blogdocs].delete(tag);
+    }
 
     addBlogPodcast(config, name, blogPodcast) {
         this.options.bloglist[name] = blogPodcast;
@@ -61,6 +75,67 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         return false;
     }
 
+    isVPathInBlog(cfg, info) {
+        if (!info.renderPath.match(/\.html$/)) return false;
+        if (cfg.matchers) {
+            if (cfg.matchers.layout
+             && Array.isArray(cfg.matchers.layout)
+             && cfg.matchers.layout.length > 0) {
+                if (info.docMetadata
+                 && info.docMetadata.layout) {
+                    let matchedLayout = false;
+                    for (let layout of cfg.matchers.layout) {
+                        if (layout === info.docMetadata.layout) {
+                            matchedLayout = true;
+                        }
+                    }
+                    if (!matchedLayout) return false;
+                }
+            }
+            if (cfg.matchers.renderpath) {
+                if (!info.renderPath.match(cfg.matchers.renderpath)) return false;
+            }
+            if (cfg.matchers.path) {
+                if (!info.vpath.match(cfg.matchers.path)) return false;
+            }
+            if (cfg.matchers.glob) {
+                if (!info.vpath.match(cfg.matchers.glob)) return false;
+            }
+            if (cfg.rootPath) {
+                if (!info.renderPath.startsWith(cfg.rootPath)) return false;
+            }
+        }
+        return true;
+    }
+
+    async beforeSiteRendered(config) {
+        const filecache = await akasha.filecache;
+        filecache.documents.on('add', (name, info) => {
+            for (let [ cfgkey, cfg ] of this[_plugin_blogdocs]) {
+                if (this.isVPathInBlog(cfg, info)) {
+                    this.clearBlogdocs(cfgkey);
+                    return;
+                }
+            }
+        });
+        filecache.documents.on('change', (name, info) => {
+            for (let [ cfgkey, cfg ] of this[_plugin_blogdocs]) {
+                if (this.isVPathInBlog(cfg, info)) {
+                    this.clearBlogdocs(cfgkey);
+                    return;
+                }
+            }
+        });
+        filecache.documents.on('unlink', (name, info) => {
+            for (let [ cfgkey, cfg ] of this[_plugin_blogdocs]) {
+                if (this.isVPathInBlog(cfg, info)) {
+                    this.clearBlogdocs(cfgkey);
+                    return;
+                }
+            }
+        });
+    }
+
     async onSiteRendered(config) {
         const plugin = this;
         const tasks = [];
@@ -69,12 +144,14 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
                 continue;
             }
             var blogcfg = this.options.bloglist[blogkey];
-            tasks.push(blogcfg);
+            tasks.push({ blogkey, blogcfg });
         }
-        await Promise.all(tasks.map(async blogcfg => {
+        await Promise.all(tasks.map(async data => {
+            const blogkey = data.blogkey;
+            const blogcfg = data.blogcfg;
             // console.log(`blog-podcast blogcfg ${util.inspect(blogcfg)}`);
             const taskStart = new Date();
-            var documents = await plugin.findBlogDocs(config, blogcfg);
+            var documents = await plugin.findBlogDocs(config, blogcfg, blogkey);
             var count = 0;
             var documents2 = documents.filter(doc => {
                 if (typeof blogcfg.maxEntries === "undefined"
@@ -190,7 +267,20 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         },
     *
     */
-    async findBlogDocs(config, blogcfg) {
+    async findBlogDocs(config, blogcfg, blogtag) {
+
+        try {
+            const _docs = this.blogdocs(blogtag);
+            if (_docs && _docs.length > 0) {
+                // console.log(`findBlogDocs ${blogtag} has ${_docs.length} entries`);
+                return _docs;
+            } else {
+                // console.log(`findBlogDocs no blogdocs found for ${blogtag}`);
+            }
+        } catch (err) {
+            // Ignore error
+            // console.error(`findBlogDocs ERROR for ${blogtag}`, err.stack);
+        }
 
         // Performance testing
         // const _start = new Date();
@@ -293,9 +383,9 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         // Performance testing
         // console.log(`findBlogDocs ${blogcfg} after reversing ${documents.length} documents ${(new Date() - _start) / 1000} seconds`);
 
-        // for (let document of documents) {
-        //    console.log(`findBlogDocs blog doc reversed  ${document.docpath} ${document.docMetadata.layout} ${document.docMetadata.publicationDate}`);
-        // }
+
+        // console.log(`findBlogDocs saved ${documents.length} entries for ${blogtag}`);
+        this.setBlogdocs(blogtag, documents);
 
         return documents;
     }
@@ -329,7 +419,8 @@ module.exports.mahabhutaArray = function(options) {
 class BlogNewsRiverElement extends mahabhuta.CustomElement {
     get elementName() { return "blog-news-river"; }
     async process($element, metadata, dirty) {
-        var blogtag = $element.attr("blogtag");
+        // const _start = new Date();
+        let blogtag = $element.attr("blogtag");
         if (!blogtag) {
             blogtag = metadata.blogtag;
         }
@@ -340,36 +431,47 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
 
         // log('blog-news-river '+ blogtag +' '+ metadata.document.path);
 
-        var blogcfg = this.array.options.bloglist[blogtag];
+        let blogcfg = this.array.options.bloglist[blogtag];
         if (!blogcfg) throw new Error('No blog configuration found for blogtag '+ blogtag);
 
-        var _blogcfg = {};
-        for (var key in blogcfg) {
+        // console.log(`BlogNewsRiverElement found blogcfg ${(new Date() - _start) / 1000} seconds`);
+
+        let _blogcfg = {};
+        for (let key in blogcfg) {
             _blogcfg[key] = blogcfg[key];
         }
 
-        var maxEntries = $element.attr('maxentries');
+        let maxEntries = $element.attr('maxentries');
 
-        var template = $element.attr("template");
+        let template = $element.attr("template");
         if (!template) template = "blog-news-river.html.ejs";
 
-        var rootPath = $element.attr('root-path');
+        let rootPath = $element.attr('root-path');
         if (rootPath) {
             _blogcfg.rootPath = rootPath;
         }
 
-        var docRootPath = $element.attr('doc-root-path');
+        let docRootPath = $element.attr('doc-root-path');
         if (docRootPath) {
             _blogcfg.rootPath = path.dirname(docRootPath);
         }
 
-        var documents = await this.array.options.config.plugin(pluginName)
-                    .findBlogDocs(this.array.options.config, _blogcfg);
+        // console.log(`BlogNewsRiverElement duplicate blogcfg ${(new Date() - _start) / 1000} seconds`);
+
+        let documents = await this.array.options.config.plugin(pluginName)
+                    .findBlogDocs(this.array.options.config, _blogcfg, blogtag);
+
+
+        // console.log(`BlogNewsRiverElement findBlogDocs ${documents.length} entries ${(new Date() - _start) / 1000} seconds`);
+
+        if (!documents) {
+            throw new Error(`BlogNewsRiverElement NO blog docs found for ${blogtag}`);
+        }
 
         // log('blog-news-river documents '+ util.inspect(documents));
 
-        var count = 0;
-        var documents2 = documents.filter(doc => {
+        let count = 0;
+        let documents2 = documents.filter(doc => {
             if (typeof maxEntries === "undefined"
             || (typeof maxEntries !== "undefined" && count++ < maxEntries)) {
                 return true;
@@ -377,10 +479,16 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
         });
         // log('blog-news-river documents2 '+ util.inspect(documents2));
 
-        return akasha.partial(this.array.options.config, template, {
+        // console.log(`BlogNewsRiverElement filter ${documents2.length} entries ${(new Date() - _start) / 1000} seconds`);
+
+        let ret = await akasha.partial(this.array.options.config, template, {
             documents: documents2,
             feedUrl: _blogcfg.rssurl
         });
+
+        // console.log(`BlogNewsRiverElement rendered ${(new Date() - _start) / 1000} seconds`);
+        return ret;
+
     }
 }
 
@@ -489,7 +597,7 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
                         : metadata.document.path;
         let documents = await this.array.options.config
                 .plugin(pluginName)
-                .findBlogDocs(this.array.options.config, blogcfg);
+                .findBlogDocs(this.array.options.config, blogcfg, metadata.blogtag);
 
         // console.log(`BlogNextPrevElement findBlogDocs found ${documents.length} items ${(new Date() - _start)/1000} seconds`);
         let docIndex = -1;

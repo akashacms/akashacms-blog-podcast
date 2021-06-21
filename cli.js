@@ -23,7 +23,7 @@ const program   = require('commander');
 const akasha    = require('akasharender');
 
 process.title = 'akashacms-blog-podcast';
-program.version('0.7.4');
+program.version('0.7.8');
 
 program
     .command('cfg <configFN> <cfg>')
@@ -49,7 +49,8 @@ program
         try {
             console.log(`items for ${cfg} `);
             const config = require(path.join(process.cwd(), configFN));
-            await config.setup();
+            await akasha.cacheSetup(config);
+            await akasha.setupDocuments(config);
             let filecache = await akasha.filecache;
             // console.log(filecache.documents);
             await filecache.documents.isReady();
@@ -63,7 +64,7 @@ program
             for (let item of items) {
                 console.log(`blog item ${cfg} `, item);
             }
-            await config.close();
+            await akasha.closeCaches();
         } catch (e) {
             console.error(`items command ERRORED ${e.stack}`);
         }
@@ -75,7 +76,8 @@ program
     .action(async (configFN, cfg) => {
         try {
             const config = require(path.join(process.cwd(), configFN));
-            await config.setup();
+            await akasha.cacheSetup(config);
+            await akasha.setupDocuments(config);
             let filecache = await akasha.filecache;
             // console.log(filecache.documents);
             await filecache.documents.isReady();
@@ -88,7 +90,7 @@ program
             for (let index of indexes) {
                 console.log(`blog index ${cfg} `, index);
             }
-            await config.close();
+            await akasha.closeCaches();
         } catch (e) {
             console.error(`index command ERRORED ${e.stack}`);
         }
