@@ -563,7 +563,7 @@ class BlogRSSListElement extends mahabhuta.CustomElement {
 class BlogNextPrevElement extends mahabhuta.CustomElement {
     get elementName() { return "blog-next-prev"; }
     async process($element, metadata, dirty) {
-        const _start = new Date();
+        // const _start = new Date();
         if (! metadata.blogtag) { return; }
         let blogcfg = this.array.options.bloglist[metadata.blogtag];
         if (!blogcfg) throw new Error(`No blog configuration found for blogtag ${metadata.blogtag} in ${metadata.document.path}`);
@@ -575,7 +575,7 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
                 .plugin(pluginName)
                 .findBlogDocs(this.array.options.config, blogcfg, metadata.blogtag);
 
-        console.log(`BlogNextPrevElement findBlogDocs found ${documents.length} items ${(new Date() - _start)/1000} seconds`);
+        // console.log(`BlogNextPrevElement findBlogDocs found ${documents.length} items ${(new Date() - _start)/1000} seconds`);
         let docIndex = -1;
         let j = 0;
         for (let j = 0; j < documents.length; j++) {
@@ -586,7 +586,7 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
                 docIndex = j;
             }
         }
-        console.log(`BlogNextPrevElement docIndex ${docIndex}`);
+        // console.log(`BlogNextPrevElement docIndex ${docIndex}`);
         if (docIndex >= 0) {
             let prevDoc = docIndex === 0
                 ? documents[documents.length - 1]
@@ -599,7 +599,7 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
             let html = await akasha.partial(this.array.options.config, 'blog-next-prev.html.ejs', {
                 prevDoc, nextDoc
             });
-            console.log(`BlogNextPrevElement findBlogDocs FINISH ${(new Date() - _start)/1000} seconds`);
+            // console.log(`BlogNextPrevElement findBlogDocs FINISH ${(new Date() - _start)/1000} seconds`);
             return html;
         } else {
             console.error(`blog-next-prev did not find document ${docpathNoSlash} ${metadata.document.path} in blog`);
