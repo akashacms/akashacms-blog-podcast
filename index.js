@@ -237,13 +237,12 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         }
 
         // Performance testing
-        const _start = new Date();
+        // const _start = new Date();
 
         if (!blogcfg || !blogcfg.matchers) {
             throw new Error(`findBlogDocs no blogcfg`);
         }
 
-        const options = {};
         const selector = {
             docMetadata: {
                 blogtag: { $eeq: blogtag }
@@ -255,10 +254,8 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         }
         if (blogcfg.matchers && blogcfg.matchers.path) {
             if (blogcfg.matchers.path instanceof RegExp) {
-                options.pathmatch = blogcfg.matchers.path;
                 selector.vpath = blogcfg.matchers.path;
             } else if (typeof blogcfg.matchers.path === 'string') {
-                options.pathmatch = new RegExp(blogcfg.matchers.path);
                 selector.vpath = new RegExp(blogcfg.matchers.path);
             } else {
                 throw new Error(`Incorrect setting for blogcfg.matchers.path ${util.inspect(blogcfg.matchers.path)}`);
@@ -266,26 +263,16 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         }
         if (blogcfg.matchers && blogcfg.matchers.renderpath) {
             if (blogcfg.matchers.renderpath instanceof RegExp) {
-                options.renderpathmatch = blogcfg.matchers.renderpath;
                 selector.renderPath = blogcfg.matchers.renderpath;
             } else if (typeof blogcfg.matchers.path === 'string') {
-                options.renderpathmatch = new RegExp(blogcfg.matchers.renderpath);
                 selector.renderPath = new RegExp(blogcfg.matchers.renderpath);
             } else {
                 throw new Error(`Incorrect setting for blogcfg.matchers.renderpath ${util.inspect(blogcfg.matchers.renderpath)}`);
             }
         }
-        if (blogcfg.matchers && blogcfg.matchers.glob) {
-            if (typeof blogcfg.matchers.glob === 'string') {
-                options.glob = blogcfg.matchers.glob;
-            } else {
-                throw new Error(`Incorrect setting for blogcfg.matchers.glob ${util.inspect(blogcfg.matchers.glob)}`);
-            }
-        }
         if (blogcfg.matchers && blogcfg.matchers.layouts) {
             if (typeof blogcfg.matchers.layouts === 'string'
              || Array.isArray(blogcfg.matchers.layouts)) {
-                options.layouts = blogcfg.matchers.layouts;
                 if (!selector.docMetadata) selector.docMetadata = {};
                 selector.docMetadata.layout = { $in: blogcfg.matchers.layouts };
             } else {
@@ -293,7 +280,6 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             }
         }
         if (typeof blogcfg.rootPath === 'string') {
-            options.rootPath = blogcfg.rootPath;
             // There might have been a 'matchers.renderpath' in which case
             // we want to convert it into a $and clause to match both.
             let rootPathMatch = new RegExp(`^${blogcfg.rootPath}`);
@@ -335,11 +321,6 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         const coll = filecache.documents.getCollection(filecache.documents.collectio);
         const _documents = coll.find(selector, limitor);
 
-        // Do not set renderers
-        // console.log(`findBlogDocs `, options);
-
-        // Search using the function in FileCache
-        // const _documents = (await akasha.filecache).documents.search(config, options);
         // Performance testing
         // console.log(`findBlogDocs ${blogtag} after searching ${_documents.length} documents ${(new Date() - _start) / 1000} seconds`);
 
