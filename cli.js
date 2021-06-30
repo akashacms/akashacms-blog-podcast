@@ -57,9 +57,11 @@ program
             const blogcfg = config.plugin(pluginName).options.bloglist[cfg];
             console.log(`items for ${cfg} `, blogcfg);
             const items = await config.plugin(pluginName)
-                                    .findBlogDocs(config, blogcfg, cfg);
+                                    .NEWfindBlogDocs(config, blogcfg, cfg);
+                                    // .findBlogDocs(config, blogcfg, cfg);
             for (let item of items) {
-                console.log(`blog item ${cfg} `, item);
+                // console.log(`blog item ${cfg} `, item);
+                console.log(`${item.vpath} ${item.docMetadata.publicationDate}`);
             }
             await akasha.closeCaches();
         } catch (e) {
