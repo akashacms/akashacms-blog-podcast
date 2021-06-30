@@ -44,6 +44,8 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     get config() { return this[_plugin_config]; }
     get options() { return this[_plugin_options]; }
 
+    blogcfg(tag) { return this.options.bloglist[tag]; }
+
     isBlogtag(tag) {
         let type = typeof this.options.bloglist[tag];
         return type !== 'undefined' && type === 'object';
@@ -66,23 +68,40 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         return false;
     }
 
+    findBlogForVPInfo(vpinfo) {
+        for (var blogkey in this.options.bloglist) {
+            var blogcfg = this.options.bloglist[blogkey];
+            // console.log(`findBlogForVPInfo ${vpinfo.vpath} in ${blogkey}`);
+            if (this.isVPathInBlog(blogcfg, vpinfo)) {
+                // console.log(`YES findBlogForVPInfo ${vpinfo.vpath} in ${blogkey}`);
+                return { blogkey, blogcfg };
+            }
+        }
+        // console.log(`findBlogForVPInfo ${vpinfo.vpath} no blog`);
+        return undefined;
+    }
+
     isVPathInBlog(cfg, info) {
         if (!info.renderPath.match(/\.html$/)) return false;
         if (cfg.matchers) {
-            if (cfg.matchers.layout
-             && Array.isArray(cfg.matchers.layout)
-             && cfg.matchers.layout.length > 0) {
+            if (cfg.matchers.layouts
+             && Array.isArray(cfg.matchers.layouts)
+             && cfg.matchers.layouts.length > 0) {
+                // console.log(`isVPathInBlog ${info.vpath} layouts `, cfg.matchers.layouts);
                 if (info.docMetadata
                  && info.docMetadata.layout) {
+                    // console.log(`isVPathInBlog ${info.vpath} is ${info.docMetadata.layout} in `, cfg.matchers.layouts);
                     let matchedLayout = false;
-                    for (let layout of cfg.matchers.layout) {
+                    for (let layout of cfg.matchers.layouts) {
                         if (layout === info.docMetadata.layout) {
                             matchedLayout = true;
                         }
                     }
                     if (!matchedLayout) return false;
                 }
-            }
+            }/* else {
+                console.log(`isVPathInBlog ${info.vpath} NO LAYOUT MATCHERS`);
+            } */
             if (cfg.matchers.renderpath) {
                 if (!info.renderPath.match(cfg.matchers.renderpath)) return false;
             }
@@ -95,7 +114,9 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             if (cfg.rootPath) {
                 if (!info.renderPath.startsWith(cfg.rootPath)) return false;
             }
-        }
+        }/* else {
+            console.log(`isVPathInBlog ${info.vpath} NO MATCHERS`);
+        } */
         return true;
     }
 
@@ -318,7 +339,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         // console.log(`findBlogDocs ${blogtag} selector ${util.inspect(selector)}`);
 
         // Search by directly calling ForerunnerDB API
-        const coll = filecache.documents.getCollection(filecache.documents.collectio);
+        const coll = filecache.documents.getCollection(filecache.documents.collection);
         const _documents = coll.find(selector, limitor);
 
         // Performance testing
@@ -374,6 +395,82 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         return documents;
     }
 
+    async NEWfindBlogDocs(config, blogcfg, blogtag, rootPath) {
+
+        const cache = await akasha.cache;
+        const coll = cache.getCache('blog-index', { create: true });
+        const found = coll.find({
+            blogtag: { $eq: blogtag }
+        });
+
+        if (!found || found.length <= 0) {
+            // Nothing found in blog
+            // Is this an error?
+            return;
+        }
+
+        const filecache = await akasha.filecache;
+        const documents = [];
+        let rootPathMatcher;
+        if (rootPath) {
+            rootPathMatcher = new RegExp(`^${rootPath}`);
+        }
+        let count = 0;
+        for (let entry of found) {
+            if (rootPathMatcher && ! entry.vpath.match(rootPathMatcher)) {
+                // Not to be included
+                continue;
+            }
+            if (typeof blogcfg.maxEntries !== 'undefined') {
+                let maxEntries;
+                try {
+                    maxEntries = Number.parseInt(blogcfg.maxEntries);
+                } catch (err) {
+                    maxEntries = undefined;
+                }
+                if (typeof maxEntries !== 'undefined' && count > maxEntries) {
+                    break;
+                }
+            }
+            count++;
+            let doc = filecache.documents.find(entry.vpath);
+            documents.push(await filecache.documents.readDocument(doc));
+        }
+
+        for (let doc of documents) {
+            if (!doc.metadata) console.log(`findBlogDocs DID NOT FIND METADATA IN ${doc.vpath}`, doc);
+            if (!doc.stat) console.log(`findBlogDocs DID NOT FIND STAT IN ${doc.vpath}`, doc);
+        }
+
+        let dateErrors = [];
+        documents.sort((a, b) => {
+            // console.log(a);
+            let publA = a.docMetadata && a.docMetadata.publicationDate 
+                    ? a.docMetadata.publicationDate : a.stat.mtime;
+            let aPublicationDate = Date.parse(publA);
+            if (isNaN(aPublicationDate)) {
+                dateErrors.push(`findBlogDocs ${a.renderPath} BAD DATE publA ${publA}`);
+            }
+            let publB = b.docMetadata && b.docMetadata.publicationDate 
+                    ? b.docMetadata.publicationDate : b.stat.mtime;
+            let bPublicationDate = Date.parse(publB);
+            // console.log(`findBlogDocs publA ${publA} aPublicationDate ${aPublicationDate} publB ${publB} bPublicationDate ${bPublicationDate}`);
+            if (isNaN(bPublicationDate)) {
+                dateErrors.push(`findBlogDocs ${b.renderPath} BAD DATE publB ${publB}`);
+            }
+            if (aPublicationDate < bPublicationDate) return -1;
+            else if (aPublicationDate === bPublicationDate) return 0;
+            else return 1;
+        });
+        if (dateErrors.length >= 1) {
+            throw dateErrors;
+        }
+
+        documents.reverse();
+        // console.log(documents);
+        return documents;
+    }
+
     async findBlogIndexes(config, blogcfg) {
         if (!blogcfg.indexmatchers) return [];
 
@@ -384,6 +481,158 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             layouts: blogcfg.indexmatchers.layouts ? blogcfg.indexmatchers.layouts : undefined,
             rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
         });
+    }
+
+    // For these ... retrieve the blogcfg for the document.  Have a function 
+    // to determine if a document matches the matchers of the blogcfg. 
+
+    async onFileAdded(config, collection, vpinfo) {
+        // console.log(`onFileAdded ${vpinfo.vpath}`);
+        const filecache = await akasha.filecache;
+        if (!(filecache.documents) || filecache.documents.collection !== collection) {
+            return;
+        }
+
+        if (!vpinfo.docMetadata || !vpinfo.docMetadata.blogtag) {
+            // No blogtag on document
+            // console.log(`onFileAdded ${vpinfo.vpath} no docMetadata.blogtag`);
+            return;
+        }
+
+        if (!this.isBlogtag(vpinfo.docMetadata.blogtag)) {
+            // console.log(`onFileAdded ${vpinfo.vpath} no a valid blogtag ${vpinfo.docMetadata.blogtag}`);
+            // Invalid blogtag on document
+            // Does this warrant an error?
+            return;
+        }
+
+        const bloginfo = this.findBlogForVPInfo(vpinfo);
+        if (!bloginfo) {
+            // No matching blog found
+            // console.log(`onFileAdded ${vpinfo.vpath} no bloginfo found ${vpinfo.docMetadata.blogtag}`);
+            // This this warrant an error?
+            return;
+        }
+
+        if (vpinfo.docMetadata.blogtag !== bloginfo.blogkey) {
+            // console.log(`onFileAdded ${vpinfo.vpath} document blogtag ${vpinfo.docMetadata.blogtag} does not match retrieved ${util.inspect(bloginfo)}`);
+            // The retrieved blog did not match the tag in the document
+            // This this warrant an error?
+            return;
+        }
+
+        const cache = await akasha.cache;
+        const coll = cache.getCache('blog-index', { create: true });
+        const found = coll.find({
+            $and: [
+                { blogtag: { $eq: vpinfo.docMetadata.blogtag } },
+                { vpath: { $eq: vpinfo.vpath } }
+            ]
+        });
+        if (found && found.length > 0) {
+            // This is possibly an error because for an Add opertion
+            // there should not be a blog-index entry
+            // console.log(`onFileAdded ${vpinfo.vpath} found ${found.length} blog-index instances for ${vpinfo.docMetadata.blogtag} ${vpinfo.vpath}`);
+            return;
+        }
+
+        coll.insert({
+            blogtag: vpinfo.docMetadata.blogtag,
+            vpath: vpinfo.vpath
+        });
+
+        // console.log(`onFileAdded ${collection}`, vpinfo);
+        // TODO fill this in
+
+    }
+
+    async onFileChanged(config, collection, vpinfo) {
+        // console.log(`onFileChanged ${vpinfo.vpath}`);
+        const filecache = await akasha.filecache;
+        if (!(filecache.documents) || filecache.documents.collection !== collection) {
+            return;
+        }
+
+        if (!vpinfo.docMetadata || !vpinfo.docMetadata.blogtag) {
+            // console.log(`onFileChanged ${vpinfo.vpath} no docMetadata.blogtag`);
+            return;
+        }
+
+        if (!this.isBlogtag(vpinfo.docMetadata.blogtag)) {
+            // console.log(`onFileChanged ${vpinfo.vpath} no a valid blogtag ${vpinfo.docMetadata.blogtag}`);
+            // Invalid blogtag on document
+            // Does this warrant an error?
+            return;
+        }
+
+        const bloginfo = this.findBlogForVPInfo(vpinfo);
+        if (!bloginfo) {
+            // No matching blog
+            // console.log(`onFileChanged ${vpinfo.vpath} no bloginfo found ${vpinfo.docMetadata.blogtag}`); found
+            // This this warrant an error?
+            return;
+        }
+
+        if (vpinfo.docMetadata.blogtag !== bloginfo.blogtag) {
+            // console.log(`onFileChanged ${vpinfo.vpath} document blogtag ${vpinfo.docMetadata.blogtag} does not match retrieved ${bloginfo.blogtag}`);
+            // The retrieved blog did not match the tag in the document
+            // This this warrant an error?
+            return;
+        }
+
+        const cache = await akasha.cache;
+        const coll = cache.getCache('blog-index', { create: true });
+
+        coll.remove({ vpath: vpinfo.vpath });
+        // TODO the change might be to blogtag
+        //      hence, need to look for entry with old blogtag
+        //      or, maybe we just remove any existing entry and add this?
+
+        coll.insert({
+            blogtag: vpinfo.docMetadata.blogtag,
+            vpath: vpinfo.vpath
+        });
+
+        // console.log(`onFileChanged ${collection}`, vpinfo);
+        // TODO fill this in
+
+    }
+
+    async onFileUnlinked(config, collection, vpinfo) {
+        const filecache = await akasha.filecache;
+        if (!(filecache.documents) || filecache.documents.collection !== collection) {
+            return;
+        }
+
+        if (!vpinfo.docMetadata || !vpinfo.docMetadata.blogtag) {
+            return;
+        }
+
+        if (!this.isBlogtag(vpinfo.docMetadata.blogtag)) {
+            // Invalid blogtag on document
+            // Does this warrant an error?
+            return;
+        }
+
+        const bloginfo = this.findBlogForVPInfo(vpinfo);
+        if (!bloginfo) {
+            // No matching blog found
+            // This this warrant an error?
+            return;
+        }
+
+        if (vpinfo.docMetadata.blogtag !== bloginfo.blogtag) {
+            // The retrieved blog did not match the tag in the document
+            // This this warrant an error?
+            return;
+        }
+
+        const cache = await akasha.cache;
+        const coll = cache.getCache('blog-index', { create: true });
+        coll.remove({ vpath: vpinfo.vpath });
+
+        // console.log(`onFileUnlinked ${collection}`, vpinfo);
+        // TODO fill this in
     }
 
 }
@@ -445,8 +694,11 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
 
         // console.log(`BlogNewsRiverElement duplicate blogcfg ${(new Date() - _start) / 1000} seconds`);
 
+        // let documents = await this.array.options.config.plugin(pluginName)
+        //            .findBlogDocs(this.array.options.config, _blogcfg, blogtag);
+
         let documents = await this.array.options.config.plugin(pluginName)
-                    .findBlogDocs(this.array.options.config, _blogcfg, blogtag);
+                    .NEWfindBlogDocs(this.array.options.config, _blogcfg, blogtag, docRootPath);
 
 
         // console.log(`BlogNewsRiverElement findBlogDocs ${documents.length} entries ${(new Date() - _start) / 1000} seconds`);
@@ -571,9 +823,12 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
         let docpathNoSlash = metadata.document.path.startsWith('/')
                         ? metadata.document.path.substring(1)
                         : metadata.document.path;
-        let documents = await this.array.options.config
-                .plugin(pluginName)
-                .findBlogDocs(this.array.options.config, blogcfg, metadata.blogtag);
+        // let documents = await this.array.options.config
+        //        .plugin(pluginName)
+        //        .findBlogDocs(this.array.options.config, blogcfg, metadata.blogtag);
+
+        let documents = await this.array.options.config.plugin(pluginName)
+                .NEWfindBlogDocs(this.array.options.config, blogcfg, metadata.blogtag);
 
         // console.log(`BlogNextPrevElement findBlogDocs found ${documents.length} items ${(new Date() - _start)/1000} seconds`);
         let docIndex = -1;
@@ -582,6 +837,7 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
             let document = documents[j];
             // console.log(`blog-next-prev findBlogDocs blogtag ${util.inspect(metadata.blogtag)} found ${document.basedir} ${document.docpath} ${document.docfullpath} ${document.renderpath}  MATCHES? ${docpathNoSlash}  ${metadata.document.path}`);
             // console.log(`BlogNextPrevElement ${path.normalize(document.vpath)} === ${path.normalize(docpathNoSlash)}`);
+            // console.log(`BlogNextPrevElement ${path.normalize(document.vpath)}`);
             if (path.normalize(document.vpath) === path.normalize(docpathNoSlash)) {
                 docIndex = j;
             }
@@ -591,10 +847,12 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
             let prevDoc = docIndex === 0
                 ? documents[documents.length - 1]
                 : documents[docIndex - 1];
+            let thisDoc = documents[docIndex];
             let nextDoc = docIndex === documents.length - 1
                 ? documents[0]
                 : documents[docIndex + 1];
             // console.log(`prevDoc ${docIndex} ${prevDoc.renderPath} ${prevDoc.docMetadata.title}`);
+            // console.log(`thisDoc ${docIndex} ${thisDoc.renderPath} ${thisDoc.docMetadata.title}`);
             // console.log(`nextDoc ${docIndex} ${nextDoc.renderPath} ${nextDoc.docMetadata.title}`);
             let html = await akasha.partial(this.array.options.config, 'blog-next-prev.html.ejs', {
                 prevDoc, nextDoc
