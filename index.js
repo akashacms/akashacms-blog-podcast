@@ -68,6 +68,19 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         return false;
     }
 
+    get cacheIndexes() {
+        return {
+            documents: {
+                docMetadata: {
+                    blogtag: 1
+                }
+            },
+            assets: undefined,
+            layouts: undefined,
+            partials: undefined,
+        };
+    }
+
     findBlogForVPInfo(vpinfo) {
         for (var blogkey in this.options.bloglist) {
             var blogcfg = this.options.bloglist[blogkey];
@@ -269,10 +282,10 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
                 blogtag: { $eeq: blogtag }
             }
         };
-        const limitor = {};
         if (blogcfg.blogtags && Array.isArray(blogcfg.blogtags)) {
             selector.docMetadata.blogtag = { $in: blogcfg.blogtags }
         }
+        const limitor = {};
         if (blogcfg.matchers && blogcfg.matchers.path) {
             if (blogcfg.matchers.path instanceof RegExp) {
                 selector.vpath = blogcfg.matchers.path;
@@ -406,7 +419,10 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         if (!found || found.length <= 0) {
             // Nothing found in blog
             // Is this an error?
-            return;
+            console.log(`NEWfindBlogDocs no items found in blog-index for ${blogtag}`);
+            return; //  this.findBlogDocs(config, blogcfg, blogtag);
+        } else {
+            console.log(`NEWfindBlogDocs found ${found.length} items in blog-index for ${blogtag}`);
         }
 
         const filecache = await akasha.filecache;
@@ -436,6 +452,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             let doc = filecache.documents.find(entry.vpath);
             documents.push(await filecache.documents.readDocument(doc));
         }
+        console.log(`NEWfindBlogDocs readDocument for ${documents.length} items in blog-index for ${blogtag}`);
 
         for (let doc of documents) {
             if (!doc.metadata) console.log(`findBlogDocs DID NOT FIND METADATA IN ${doc.vpath}`, doc);
@@ -487,7 +504,8 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     // to determine if a document matches the matchers of the blogcfg. 
 
     async onFileAdded(config, collection, vpinfo) {
-        // console.log(`onFileAdded ${vpinfo.vpath}`);
+        /*
+        console.log(`onFileAdded ${vpinfo.vpath}`);
         const filecache = await akasha.filecache;
         if (!(filecache.documents) || filecache.documents.collection !== collection) {
             return;
@@ -495,12 +513,12 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 
         if (!vpinfo.docMetadata || !vpinfo.docMetadata.blogtag) {
             // No blogtag on document
-            // console.log(`onFileAdded ${vpinfo.vpath} no docMetadata.blogtag`);
+            console.log(`onFileAdded ${vpinfo.vpath} no docMetadata.blogtag`);
             return;
         }
 
         if (!this.isBlogtag(vpinfo.docMetadata.blogtag)) {
-            // console.log(`onFileAdded ${vpinfo.vpath} no a valid blogtag ${vpinfo.docMetadata.blogtag}`);
+            console.log(`onFileAdded ${vpinfo.vpath} no a valid blogtag ${vpinfo.docMetadata.blogtag}`);
             // Invalid blogtag on document
             // Does this warrant an error?
             return;
@@ -509,13 +527,13 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         const bloginfo = this.findBlogForVPInfo(vpinfo);
         if (!bloginfo) {
             // No matching blog found
-            // console.log(`onFileAdded ${vpinfo.vpath} no bloginfo found ${vpinfo.docMetadata.blogtag}`);
+            console.log(`onFileAdded ${vpinfo.vpath} no bloginfo found ${vpinfo.docMetadata.blogtag}`);
             // This this warrant an error?
             return;
         }
 
         if (vpinfo.docMetadata.blogtag !== bloginfo.blogkey) {
-            // console.log(`onFileAdded ${vpinfo.vpath} document blogtag ${vpinfo.docMetadata.blogtag} does not match retrieved ${util.inspect(bloginfo)}`);
+            console.log(`onFileAdded ${vpinfo.vpath} document blogtag ${vpinfo.docMetadata.blogtag} does not match retrieved ${util.inspect(bloginfo)}`);
             // The retrieved blog did not match the tag in the document
             // This this warrant an error?
             return;
@@ -532,7 +550,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         if (found && found.length > 0) {
             // This is possibly an error because for an Add opertion
             // there should not be a blog-index entry
-            // console.log(`onFileAdded ${vpinfo.vpath} found ${found.length} blog-index instances for ${vpinfo.docMetadata.blogtag} ${vpinfo.vpath}`);
+            console.log(`onFileAdded ${vpinfo.vpath} found ${found.length} blog-index instances for ${vpinfo.docMetadata.blogtag} ${vpinfo.vpath}`);
             return;
         }
 
@@ -543,10 +561,11 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 
         // console.log(`onFileAdded ${collection}`, vpinfo);
         // TODO fill this in
-
+        */
     }
 
     async onFileChanged(config, collection, vpinfo) {
+        /*
         // console.log(`onFileChanged ${vpinfo.vpath}`);
         const filecache = await akasha.filecache;
         if (!(filecache.documents) || filecache.documents.collection !== collection) {
@@ -595,10 +614,11 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 
         // console.log(`onFileChanged ${collection}`, vpinfo);
         // TODO fill this in
-
+        */
     }
 
     async onFileUnlinked(config, collection, vpinfo) {
+        /*
         const filecache = await akasha.filecache;
         if (!(filecache.documents) || filecache.documents.collection !== collection) {
             return;
@@ -633,6 +653,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 
         // console.log(`onFileUnlinked ${collection}`, vpinfo);
         // TODO fill this in
+        */
     }
 
 }
@@ -694,11 +715,11 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
 
         // console.log(`BlogNewsRiverElement duplicate blogcfg ${(new Date() - _start) / 1000} seconds`);
 
-        // let documents = await this.array.options.config.plugin(pluginName)
-        //            .findBlogDocs(this.array.options.config, _blogcfg, blogtag);
-
         let documents = await this.array.options.config.plugin(pluginName)
-                    .NEWfindBlogDocs(this.array.options.config, _blogcfg, blogtag, docRootPath);
+                    .findBlogDocs(this.array.options.config, _blogcfg, blogtag);
+
+        // let documents = await this.array.options.config.plugin(pluginName)
+        //            .NEWfindBlogDocs(this.array.options.config, _blogcfg, blogtag, docRootPath);
 
 
         // console.log(`BlogNewsRiverElement findBlogDocs ${documents.length} entries ${(new Date() - _start) / 1000} seconds`);
@@ -823,12 +844,12 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
         let docpathNoSlash = metadata.document.path.startsWith('/')
                         ? metadata.document.path.substring(1)
                         : metadata.document.path;
-        // let documents = await this.array.options.config
-        //        .plugin(pluginName)
-        //        .findBlogDocs(this.array.options.config, blogcfg, metadata.blogtag);
+        let documents = await this.array.options.config
+                .plugin(pluginName)
+                .findBlogDocs(this.array.options.config, blogcfg, metadata.blogtag);
 
-        let documents = await this.array.options.config.plugin(pluginName)
-                .NEWfindBlogDocs(this.array.options.config, blogcfg, metadata.blogtag);
+        // let documents = await this.array.options.config.plugin(pluginName)
+        //        .NEWfindBlogDocs(this.array.options.config, blogcfg, metadata.blogtag);
 
         // console.log(`BlogNextPrevElement findBlogDocs found ${documents.length} items ${(new Date() - _start)/1000} seconds`);
         let docIndex = -1;
