@@ -283,9 +283,13 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             }
         };
         if (blogcfg.blogtags && Array.isArray(blogcfg.blogtags)) {
-            selector.docMetadata.blogtag = { $in: blogcfg.blogtags }
+            selector.docMetadata.blogtag = { $in: blogcfg.blogtags };
         }
         const limitor = {};
+        if (blogcfg.matchers
+         && typeof blogcfg.matchers.rendersToHTML !== 'undefined') {
+            selector.rendersToHTML = { $eeq: blogcfg.matchers.rendersToHTML };
+        }
         if (blogcfg.matchers && blogcfg.matchers.path) {
             if (blogcfg.matchers.path instanceof RegExp) {
                 selector.vpath = blogcfg.matchers.path;
@@ -316,16 +320,18 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         if (typeof blogcfg.rootPath === 'string') {
             // There might have been a 'matchers.renderpath' in which case
             // we want to convert it into a $and clause to match both.
-            let rootPathMatch = new RegExp(`^${blogcfg.rootPath}`);
-            if (selector.renderPath) {
-                let renderPathMatch = selector.renderPath;
-                delete selector.renderPath;
-                selector['$and'] = [
-                    { renderPath: renderPathMatch },
-                    { renderPath: rootPathMatch }
-                ];
-            } else {
-                selector.renderPath = rootPathMatch;
+            if (blogcfg.rootPath !== '') {
+                let rootPathMatch = new RegExp(`^${blogcfg.rootPath}`);
+                if (selector.renderPath) {
+                    let renderPathMatch = selector.renderPath;
+                    delete selector.renderPath;
+                    selector['$and'] = [
+                        { renderPath: renderPathMatch },
+                        { renderPath: rootPathMatch }
+                    ];
+                } else {
+                    selector.renderPath = rootPathMatch;
+                }
             }
         } else if (blogcfg.rootPath) {
             throw new Error(`Incorrect setting for blogcfg.rootPath ${util.inspect(blogcfg.rootPath)}`);
