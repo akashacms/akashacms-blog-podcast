@@ -57,7 +57,7 @@ program
             const blogcfg = config.plugin(pluginName).options.bloglist[cfg];
             console.log(`items for ${cfg} `, blogcfg);
             const items = await config.plugin(pluginName)
-                                    .NEWfindBlogDocs(config, blogcfg, cfg);
+                                    .findBlogDocs(config, blogcfg, cfg);
                                     // .findBlogDocs(config, blogcfg, cfg);
             for (let item of items) {
                 // console.log(`blog item ${cfg} `, item);

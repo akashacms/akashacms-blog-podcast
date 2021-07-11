@@ -337,18 +337,46 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             throw new Error(`Incorrect setting for blogcfg.rootPath ${util.inspect(blogcfg.rootPath)}`);
         }
 
-        if (typeof blogcfg.maxEntries !== 'undefined') {
-            let maxEntries;
-            try {
-                maxEntries = Number.parseInt(blogcfg.maxEntries);
-            } catch (err) {
-                maxEntries = undefined;
-            }
-            if (typeof maxEntries !== 'undefined') {
-                limitor['$page'] = 0;
-                limitor['$limit'] = maxEntries;
-            };
-        }
+        /*
+         * With ForerunnerDB it is possible for the database
+         * query to both sort the results (using $orderBy) and
+         * to limit the result set size (using $limit).
+         *
+         * But this was found to not work in this case.  The number
+         * of entries was correctly limited, but they were not
+         * correctly sorted.  That is, I tried this limitor clause
+         *
+         *   {
+         *     $page: 0,
+         *     $limit: maxEntries,
+         *     $orderBy: { docMetadata: { publicationDate: 1 }}
+         *   }
+         *
+         * But the resulting list was from somewhere in the middle
+         * of the set of documents, rather than the first N
+         * entries.
+         *
+         * Even this limitor:
+         *
+         *   {
+         *     $orderBy: { docMetadata: { publicationDate: 1 }}
+         *   }
+         *
+         * That gave us a similar random set of items from the
+         * middle of the blog, rather than the first few.
+         *
+         * It's chosen instead to not use ForerunnerDB for
+         * either purpose, and to handle sorting and limiting
+         * outside of the Forerunner query.
+         *
+         * The result is that <code>coll.find</code> below always
+         * returns the full set of entries in the blog.  The
+         * <code>sort</code> and <code>reverse</code> phases will
+         * both receive the full set of entries.  That way we
+         * reliably know the <code>maxEntries</code> is working
+         * with a full set.
+         */
+
 
         // Performance testing
         // console.log(`findBlogDocs ${blogtag} options setup ${(new Date() - _start) / 1000} seconds`);
@@ -359,13 +387,13 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 
         // Search by directly calling ForerunnerDB API
         const coll = filecache.documents.getCollection(filecache.documents.collection);
-        const _documents = coll.find(selector, limitor);
+        const _documents = coll.find(selector);
 
         // Performance testing
         // console.log(`findBlogDocs ${blogtag} after searching ${_documents.length} documents ${(new Date() - _start) / 1000} seconds`);
 
         // Fill in the data expected by blog-podcast templates
-        const documents = [];
+        let documents = [];
         for (let doc of _documents) {
             documents.push(await filecache.documents.readDocument(doc));
         }
@@ -377,10 +405,8 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         // Performance testing
         // console.log(`findBlogDocs ${blogtag} after newInitMetadata ${documents.length} documents ${(new Date() - _start) / 1000} seconds`);
 
-        // console.log('findBlogDocs '+ util.inspect(documents));
         let dateErrors = [];
         documents.sort((a, b) => {
-            // console.log(a);
             let publA = a.docMetadata && a.docMetadata.publicationDate 
                     ? a.docMetadata.publicationDate : a.stat.mtime;
             let aPublicationDate = Date.parse(publA);
@@ -404,93 +430,29 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         // Performance testing
         // console.log(`findBlogDocs ${blogtag} after sorting ${documents.length} documents ${(new Date() - _start) / 1000} seconds`);
 
-        // for (let document of documents) {
-        //    console.log(`findBlogDocs blog doc sorted  ${document.docpath} ${document.metadata.layout} ${document.metadata.publicationDate}`);
-        // }
         documents.reverse();
         // Performance testing
         // console.log(`findBlogDocs ${blogtag} after reversing ${documents.length} documents ${(new Date() - _start) / 1000} seconds`);
 
-        return documents;
-    }
-
-    async NEWfindBlogDocs(config, blogcfg, blogtag, rootPath) {
-
-        const cache = await akasha.cache;
-        const coll = cache.getCache('blog-index', { create: true });
-        const found = coll.find({
-            blogtag: { $eq: blogtag }
-        });
-
-        if (!found || found.length <= 0) {
-            // Nothing found in blog
-            // Is this an error?
-            console.log(`NEWfindBlogDocs no items found in blog-index for ${blogtag}`);
-            return; //  this.findBlogDocs(config, blogcfg, blogtag);
-        } else {
-            console.log(`NEWfindBlogDocs found ${found.length} items in blog-index for ${blogtag}`);
-        }
-
-        const filecache = await akasha.filecache;
-        const documents = [];
-        let rootPathMatcher;
-        if (rootPath) {
-            rootPathMatcher = new RegExp(`^${rootPath}`);
-        }
-        let count = 0;
-        for (let entry of found) {
-            if (rootPathMatcher && ! entry.vpath.match(rootPathMatcher)) {
-                // Not to be included
-                continue;
+        // Limit the number of entries
+        if (typeof blogcfg.maxEntries !== 'undefined') {
+            let maxEntries;
+            try {
+                maxEntries = Number.parseInt(blogcfg.maxEntries);
+            } catch (err) {
+                maxEntries = undefined;
             }
-            if (typeof blogcfg.maxEntries !== 'undefined') {
-                let maxEntries;
-                try {
-                    maxEntries = Number.parseInt(blogcfg.maxEntries);
-                } catch (err) {
-                    maxEntries = undefined;
-                }
-                if (typeof maxEntries !== 'undefined' && count > maxEntries) {
-                    break;
-                }
-            }
-            count++;
-            let doc = filecache.documents.find(entry.vpath);
-            documents.push(await filecache.documents.readDocument(doc));
-        }
-        console.log(`NEWfindBlogDocs readDocument for ${documents.length} items in blog-index for ${blogtag}`);
-
-        for (let doc of documents) {
-            if (!doc.metadata) console.log(`findBlogDocs DID NOT FIND METADATA IN ${doc.vpath}`, doc);
-            if (!doc.stat) console.log(`findBlogDocs DID NOT FIND STAT IN ${doc.vpath}`, doc);
+            let count = 0;
+            documents = documents.filter(doc => {
+                let ret = true;
+                if (count > maxEntries) return false;
+                count++;
+                return ret;
+            });
+            // Performance testing
+            // console.log(`findBlogDocs ${blogtag} after limiting entries ${documents.length} documents ${(new Date() - _start) / 1000} seconds`);
         }
 
-        let dateErrors = [];
-        documents.sort((a, b) => {
-            // console.log(a);
-            let publA = a.docMetadata && a.docMetadata.publicationDate 
-                    ? a.docMetadata.publicationDate : a.stat.mtime;
-            let aPublicationDate = Date.parse(publA);
-            if (isNaN(aPublicationDate)) {
-                dateErrors.push(`findBlogDocs ${a.renderPath} BAD DATE publA ${publA}`);
-            }
-            let publB = b.docMetadata && b.docMetadata.publicationDate 
-                    ? b.docMetadata.publicationDate : b.stat.mtime;
-            let bPublicationDate = Date.parse(publB);
-            // console.log(`findBlogDocs publA ${publA} aPublicationDate ${aPublicationDate} publB ${publB} bPublicationDate ${bPublicationDate}`);
-            if (isNaN(bPublicationDate)) {
-                dateErrors.push(`findBlogDocs ${b.renderPath} BAD DATE publB ${publB}`);
-            }
-            if (aPublicationDate < bPublicationDate) return -1;
-            else if (aPublicationDate === bPublicationDate) return 0;
-            else return 1;
-        });
-        if (dateErrors.length >= 1) {
-            throw dateErrors;
-        }
-
-        documents.reverse();
-        // console.log(documents);
         return documents;
     }
 
@@ -504,162 +466,6 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             layouts: blogcfg.indexmatchers.layouts ? blogcfg.indexmatchers.layouts : undefined,
             rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined
         });
-    }
-
-    // For these ... retrieve the blogcfg for the document.  Have a function 
-    // to determine if a document matches the matchers of the blogcfg. 
-
-    async onFileAdded(config, collection, vpinfo) {
-        /*
-        console.log(`onFileAdded ${vpinfo.vpath}`);
-        const filecache = await akasha.filecache;
-        if (!(filecache.documents) || filecache.documents.collection !== collection) {
-            return;
-        }
-
-        if (!vpinfo.docMetadata || !vpinfo.docMetadata.blogtag) {
-            // No blogtag on document
-            console.log(`onFileAdded ${vpinfo.vpath} no docMetadata.blogtag`);
-            return;
-        }
-
-        if (!this.isBlogtag(vpinfo.docMetadata.blogtag)) {
-            console.log(`onFileAdded ${vpinfo.vpath} no a valid blogtag ${vpinfo.docMetadata.blogtag}`);
-            // Invalid blogtag on document
-            // Does this warrant an error?
-            return;
-        }
-
-        const bloginfo = this.findBlogForVPInfo(vpinfo);
-        if (!bloginfo) {
-            // No matching blog found
-            console.log(`onFileAdded ${vpinfo.vpath} no bloginfo found ${vpinfo.docMetadata.blogtag}`);
-            // This this warrant an error?
-            return;
-        }
-
-        if (vpinfo.docMetadata.blogtag !== bloginfo.blogkey) {
-            console.log(`onFileAdded ${vpinfo.vpath} document blogtag ${vpinfo.docMetadata.blogtag} does not match retrieved ${util.inspect(bloginfo)}`);
-            // The retrieved blog did not match the tag in the document
-            // This this warrant an error?
-            return;
-        }
-
-        const cache = await akasha.cache;
-        const coll = cache.getCache('blog-index', { create: true });
-        const found = coll.find({
-            $and: [
-                { blogtag: { $eq: vpinfo.docMetadata.blogtag } },
-                { vpath: { $eq: vpinfo.vpath } }
-            ]
-        });
-        if (found && found.length > 0) {
-            // This is possibly an error because for an Add opertion
-            // there should not be a blog-index entry
-            console.log(`onFileAdded ${vpinfo.vpath} found ${found.length} blog-index instances for ${vpinfo.docMetadata.blogtag} ${vpinfo.vpath}`);
-            return;
-        }
-
-        coll.insert({
-            blogtag: vpinfo.docMetadata.blogtag,
-            vpath: vpinfo.vpath
-        });
-
-        // console.log(`onFileAdded ${collection}`, vpinfo);
-        // TODO fill this in
-        */
-    }
-
-    async onFileChanged(config, collection, vpinfo) {
-        /*
-        // console.log(`onFileChanged ${vpinfo.vpath}`);
-        const filecache = await akasha.filecache;
-        if (!(filecache.documents) || filecache.documents.collection !== collection) {
-            return;
-        }
-
-        if (!vpinfo.docMetadata || !vpinfo.docMetadata.blogtag) {
-            // console.log(`onFileChanged ${vpinfo.vpath} no docMetadata.blogtag`);
-            return;
-        }
-
-        if (!this.isBlogtag(vpinfo.docMetadata.blogtag)) {
-            // console.log(`onFileChanged ${vpinfo.vpath} no a valid blogtag ${vpinfo.docMetadata.blogtag}`);
-            // Invalid blogtag on document
-            // Does this warrant an error?
-            return;
-        }
-
-        const bloginfo = this.findBlogForVPInfo(vpinfo);
-        if (!bloginfo) {
-            // No matching blog
-            // console.log(`onFileChanged ${vpinfo.vpath} no bloginfo found ${vpinfo.docMetadata.blogtag}`); found
-            // This this warrant an error?
-            return;
-        }
-
-        if (vpinfo.docMetadata.blogtag !== bloginfo.blogtag) {
-            // console.log(`onFileChanged ${vpinfo.vpath} document blogtag ${vpinfo.docMetadata.blogtag} does not match retrieved ${bloginfo.blogtag}`);
-            // The retrieved blog did not match the tag in the document
-            // This this warrant an error?
-            return;
-        }
-
-        const cache = await akasha.cache;
-        const coll = cache.getCache('blog-index', { create: true });
-
-        coll.remove({ vpath: vpinfo.vpath });
-        // TODO the change might be to blogtag
-        //      hence, need to look for entry with old blogtag
-        //      or, maybe we just remove any existing entry and add this?
-
-        coll.insert({
-            blogtag: vpinfo.docMetadata.blogtag,
-            vpath: vpinfo.vpath
-        });
-
-        // console.log(`onFileChanged ${collection}`, vpinfo);
-        // TODO fill this in
-        */
-    }
-
-    async onFileUnlinked(config, collection, vpinfo) {
-        /*
-        const filecache = await akasha.filecache;
-        if (!(filecache.documents) || filecache.documents.collection !== collection) {
-            return;
-        }
-
-        if (!vpinfo.docMetadata || !vpinfo.docMetadata.blogtag) {
-            return;
-        }
-
-        if (!this.isBlogtag(vpinfo.docMetadata.blogtag)) {
-            // Invalid blogtag on document
-            // Does this warrant an error?
-            return;
-        }
-
-        const bloginfo = this.findBlogForVPInfo(vpinfo);
-        if (!bloginfo) {
-            // No matching blog found
-            // This this warrant an error?
-            return;
-        }
-
-        if (vpinfo.docMetadata.blogtag !== bloginfo.blogtag) {
-            // The retrieved blog did not match the tag in the document
-            // This this warrant an error?
-            return;
-        }
-
-        const cache = await akasha.cache;
-        const coll = cache.getCache('blog-index', { create: true });
-        coll.remove({ vpath: vpinfo.vpath });
-
-        // console.log(`onFileUnlinked ${collection}`, vpinfo);
-        // TODO fill this in
-        */
     }
 
 }
@@ -734,7 +540,9 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
             throw new Error(`BlogNewsRiverElement NO blog docs found for ${blogtag}`);
         }
 
-        // log('blog-news-river documents '+ util.inspect(documents));
+        /* for (let item of documents) {
+            console.log(`${item.vpath} ${item.docMetadata.publicationDate}`);
+        } */
 
         let ret = await akasha.partial(this.array.options.config, template, {
             documents: documents,
