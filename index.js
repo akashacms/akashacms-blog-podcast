@@ -18,6 +18,7 @@
 
 'use strict';
 
+const fs       = require('fs/promises');
 const path     = require('path');
 const util     = require('util');
 const url      = require('url');
@@ -399,7 +400,9 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         }
         for (let doc of documents) {
             if (!doc.metadata) console.log(`findBlogDocs DID NOT FIND METADATA IN ${doc.vpath}`, doc);
-            if (!doc.stat) console.log(`findBlogDocs DID NOT FIND STAT IN ${doc.vpath}`, doc);
+            if (!doc.stat) {
+                doc.stat = await fs.stat(doc.fspath);
+            }
         }
 
         // Performance testing
