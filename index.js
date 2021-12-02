@@ -29,6 +29,7 @@ const pluginName = "@akashacms/plugins-blog-podcast";
 
 const _plugin_config = Symbol('config');
 const _plugin_options = Symbol('options');
+const _plugin_views = Symbol('views');
 
 module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     constructor() { super(pluginName); }
@@ -36,6 +37,8 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     configure(config, options) {
         this[_plugin_config] = config;
         this[_plugin_options] = options;
+        // Possible place to store ForerunnerDB views
+        // this[_plugin_views] = {};
         options.config = config;
 		config.addPartialsDir(path.join(__dirname, 'partials'));
         config.addMahabhuta(module.exports.mahabhutaArray(options));
@@ -56,6 +59,17 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         this.options.bloglist[name] = blogPodcast;
         return this.config;
     }
+
+    /*
+     * For future - to implement ForerunnerDB views
+    viewInfo(tag) {
+        if (!this.isBlogtag(tag)) throw new Error(`viewInfo INVALID BLOGTAG ${tag}`);
+        if (!this[_plugin_views][tag]) {
+            this[_plugin_views][tag] = {};
+        }
+        return this[_plugin_views][tag];
+    }
+    */
 
     isLegitLocalHref(config, href) {
         // console.log(`isLegitLocalHref ${util.inspect(this.options.bloglist)} === ${href}?`);
@@ -222,6 +236,127 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         }));
     }
 
+    /*
+     * For future - for ForerunnerDB View */
+    blogSelector(tag) {
+
+        if (!this.isBlogtag(tag)) {
+            throw new Error(`blogSelector given invalid blogtag ${tag}`);
+        }
+
+        const blogcfg = this.blogcfg(tag);
+        // const viewInfo = this.viewInfo(tag);
+        // if (viewInfo.selector) return viewInfo.selector;
+
+        const selector = {
+            docMetadata: {
+                blogtag: { $eeq: tag }
+            }
+        };
+        if (blogcfg.blogtags && Array.isArray(blogcfg.blogtags)) {
+            selector.docMetadata.blogtag = { $in: blogcfg.blogtags };
+        }
+        const limitor = {};
+        if (blogcfg.matchers
+         && typeof blogcfg.matchers.rendersToHTML !== 'undefined') {
+            selector.rendersToHTML = { $eeq: blogcfg.matchers.rendersToHTML };
+        }
+        if (blogcfg.matchers && blogcfg.matchers.path) {
+            if (blogcfg.matchers.path instanceof RegExp) {
+                selector.vpath = blogcfg.matchers.path;
+            } else if (typeof blogcfg.matchers.path === 'string') {
+                selector.vpath = new RegExp(blogcfg.matchers.path);
+            } else {
+                throw new Error(`Incorrect setting for blogcfg.matchers.path ${util.inspect(blogcfg.matchers.path)}`);
+            }
+        }
+        if (blogcfg.matchers && blogcfg.matchers.renderpath) {
+            if (blogcfg.matchers.renderpath instanceof RegExp) {
+                selector.renderPath = blogcfg.matchers.renderpath;
+            } else if (typeof blogcfg.matchers.path === 'string') {
+                selector.renderPath = new RegExp(blogcfg.matchers.renderpath);
+            } else {
+                throw new Error(`Incorrect setting for blogcfg.matchers.renderpath ${util.inspect(blogcfg.matchers.renderpath)}`);
+            }
+        }
+        if (blogcfg.matchers && blogcfg.matchers.layouts) {
+            if (typeof blogcfg.matchers.layouts === 'string'
+             || Array.isArray(blogcfg.matchers.layouts)) {
+                if (!selector.docMetadata) selector.docMetadata = {};
+                selector.docMetadata.layout = { $in: blogcfg.matchers.layouts };
+            } else {
+                throw new Error(`Incorrect setting for blogcfg.matchers.layouts ${util.inspect(blogcfg.matchers.layouts)}`);
+            }
+        }
+        if (typeof blogcfg.rootPath === 'string') {
+            // There might have been a 'matchers.renderpath' in which case
+            // we want to convert it into a $and clause to match both.
+            if (blogcfg.rootPath !== '') {
+                let rootPathMatch = new RegExp(`^${blogcfg.rootPath}`);
+                if (selector.renderPath) {
+                    let renderPathMatch = selector.renderPath;
+                    delete selector.renderPath;
+                    selector['$and'] = [
+                        { renderPath: renderPathMatch },
+                        { renderPath: rootPathMatch }
+                    ];
+                } else {
+                    selector.renderPath = rootPathMatch;
+                }
+            }
+        } else if (blogcfg.rootPath) {
+            throw new Error(`Incorrect setting for blogcfg.rootPath ${util.inspect(blogcfg.rootPath)}`);
+        }
+
+        // viewInfo.selector = selector;
+        // return viewInfo.selector;
+
+        return selector;
+    }
+    /* */
+
+    /*
+     * For future - for ForerunnerDB View
+    // This method is untested.  The idea is for setting up a View that will
+    // optimize looking for items associated with a blog.
+    async blogView(tag) {
+
+        if (!this.isBlogtag(tag)) {
+            throw new Error(`blogSelector given invalid blogtag ${tag}`);
+        }
+
+        const blogcfg = this.blogcfg(tag);
+        const viewInfo = this.viewInfo(tag);
+        const selector = this.blogSelector(tag);
+
+        if (viewInfo.theview) return viewInfo.theview;
+
+        const cache = await akasha.cache;
+        const filecache = await akasha.filecache;
+        const coll = filecache.documents.getCollection(filecache.documents.collection);
+
+        viewInfo.theview = cache.view(`blogdocs-${tag}`);
+        viewInfo.theview.from(coll);
+        viewInfo.theview.query(selector);
+
+        return viewInfo.theview;
+    }
+    */
+
+    // TODO:-
+    //    0) initialize this view early after caches are setup
+    //    1) in filecache code.. add function, 'view', with the above
+    //    2) replace existing thing on cacheIndexes with a general hook
+    //       for plugins to customize with
+    //
+    //    a) rewrite blogDocs to use this view
+    //    b) test performance difference between existing blogDocs and new one
+    //    c) Do same for blogIndexes
+    //    d) make sure the custom elements are rewritten to use the view
+    //    e) maybe add custom functions to support those custom elements, which can also
+    //       be called from NJK macros
+
+
     /**
      *
         blogPodcast: {
@@ -277,6 +412,10 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         if (!blogcfg || !blogcfg.matchers) {
             throw new Error(`findBlogDocs no blogcfg`);
         }
+
+        const selector = this.blogSelector(blogtag);
+
+        /*
 
         const selector = {
             docMetadata: {
@@ -337,6 +476,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         } else if (blogcfg.rootPath) {
             throw new Error(`Incorrect setting for blogcfg.rootPath ${util.inspect(blogcfg.rootPath)}`);
         }
+        */
 
         /*
          * With ForerunnerDB it is possible for the database
