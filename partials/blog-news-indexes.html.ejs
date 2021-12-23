@@ -3,7 +3,7 @@
     for (var docno = 0; docno < indexDocuments.length; docno++) {
         var doc = indexDocuments[docno];
         %>
-        <a href="/<%= doc.renderpath %>"><h4><%= doc.metadata.title %></h4></a>
-        <span><%= doc.metadata.teaser %></span>
+        <a href="/<%= doc.renderPath %>"><h4><%= doc.docMetadata.title %></h4></a>
+        <span><%= doc.docMetadata.teaser %></span>
     <% } %>
 </div>

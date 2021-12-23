@@ -5,9 +5,8 @@
         var doc = documents[docno];
         %>
         <span>
-            <!-- add teaser thumbnail -->
-            <a href="/<%= doc.renderpath %>"><h2><%= doc.metadata.title %></h2></a>
-            <span>(<%= doc.metadata.publicationDate %>) <%- doc.metadata.teaser %></span>
+            <a href="/<%= doc.renderPath %>"><h2><%= doc.docMetadata.title %></h2></a>
+            <span>(<%= doc.docMetadata.publicationDate %>) <%- doc.docMetadata.teaser %></span>
         </span>
         <%
     }

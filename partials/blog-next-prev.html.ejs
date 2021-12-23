@@ -1,4 +1,8 @@
 <div class="blog-prev-next-wrapper">
-    <a class="blog-prev-link" style="padding: 15px;" href="/<%= prevDoc.renderpath %>"><span style="float: left">&laquo;&laquo;&laquo;&laquo;&laquo;&laquo; <%= prevDoc.metadata.title %></span></a>
-    <a class="blog-next-link" style="padding: 15px;" href="/<%= nextDoc.renderpath %>"><span style="float: right"><%= nextDoc.metadata.title %> &raquo;&raquo;&raquo;&raquo;&raquo;&raquo;</span></a>
+    <a class="blog-prev-link" style="padding: 15px;"
+        href="/<%= prevDoc.renderPath %>">
+        <span style="float: left">&laquo;&laquo;&laquo;&laquo;&laquo;&laquo; <%= prevDoc.docMetadata.title %></span></a>
+    <a class="blog-next-link" style="padding: 15px;" 
+        href="/<%= nextDoc.renderPath %>">
+        <span style="float: right"><%= nextDoc.docMetadata.title %> &raquo;&raquo;&raquo;&raquo;&raquo;&raquo;</span></a>
 </div>

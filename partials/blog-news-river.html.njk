@@ -1,0 +1,10 @@
+<div>
+    <a href="{{ feedUrl | safe }}"><img src="/img/rss_button.gif" align="right" width="50"/></a>
+    {{ for doc in documents }}
+        <span>
+            <a href="/{{ doc.renderPath | safe }}"><h2>{{ doc.docMetadata.title | safe }}</h2></a>
+            <span>({{ doc.docMetadata.publicationDate | safe }})
+            {{ doc.docMetadata.teaser }}</span>
+        </span>
+    {{ endfor }}
+</div>

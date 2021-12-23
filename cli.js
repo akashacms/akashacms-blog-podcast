@@ -20,9 +20,12 @@
  */
 const path      = require('path');
 const program   = require('commander');
+const akasha    = require('akasharender');
+
+const pluginName = '@akashacms/plugins-blog-podcast';
 
 process.title = 'akashacms-blog-podcast';
-program.version('0.7.4');
+program.version('0.7.8');
 
 program
     .command('cfg <configFN> <cfg>')
@@ -30,8 +33,10 @@ program
     .action(async (configFN, cfg) => {
         try {
             const config = require(path.join(process.cwd(), configFN));
-            const blogcfg = config.plugin('akashacms-blog-podcast').options.bloglist[cfg];
+            await config.setup();
+            const blogcfg = config.plugin(pluginName).options.bloglist[cfg];
             console.log(blogcfg);
+            await config.close();
         } catch (e) {
             console.error(`cfg command ERRORED ${e.stack}`);
         }
@@ -42,12 +47,23 @@ program
     .description('Print items for blog')
     .action(async (configFN, cfg) => {
         try {
+            console.log(`items for ${cfg} `);
             const config = require(path.join(process.cwd(), configFN));
-            const blogcfg = config.plugin('akashacms-blog-podcast').options.bloglist[cfg];
-            const items = await config.plugin('akashacms-blog-podcast').findBlogDocs(config, blogcfg);
+            await akasha.cacheSetup(config);
+            await akasha.setupDocuments(config);
+            let filecache = await akasha.filecache;
+            // console.log(filecache.documents);
+            await filecache.documents.isReady();
+            const blogcfg = config.plugin(pluginName).options.bloglist[cfg];
+            console.log(`items for ${cfg} `, blogcfg);
+            const items = await config.plugin(pluginName)
+                                    .findBlogDocs(config, blogcfg, cfg);
+                                    // .findBlogDocs(config, blogcfg, cfg);
             for (let item of items) {
-                console.log(`blog item ${cfg} `, item);
+                // console.log(`blog item ${cfg} `, item);
+                console.log(`${item.vpath} ${item.docMetadata.publicationDate}`);
             }
+            await akasha.closeCaches();
         } catch (e) {
             console.error(`items command ERRORED ${e.stack}`);
         }
@@ -59,11 +75,18 @@ program
     .action(async (configFN, cfg) => {
         try {
             const config = require(path.join(process.cwd(), configFN));
-            const blogcfg = config.plugin('akashacms-blog-podcast').options.bloglist[cfg];
-            const indexes = await config.plugin('akashacms-blog-podcast').findBlogIndexes(config, blogcfg);
+            await akasha.cacheSetup(config);
+            await akasha.setupDocuments(config);
+            let filecache = await akasha.filecache;
+            // console.log(filecache.documents);
+            await filecache.documents.isReady();
+            const blogcfg = config.plugin(pluginName).options.bloglist[cfg];
+            const indexes = await config.plugin(pluginName)
+                                    .findBlogIndexes(config, blogcfg);
             for (let index of indexes) {
                 console.log(`blog index ${cfg} `, index);
             }
+            await akasha.closeCaches();
         } catch (e) {
             console.error(`index command ERRORED ${e.stack}`);
         }
