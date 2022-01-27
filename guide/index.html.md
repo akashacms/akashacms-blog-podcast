@@ -193,13 +193,14 @@ See: https://github.com/akashacms/akashacms-blog-skeleton/blob/akasharender/layo
 
 ```html
 <blog-news-river maxentries="100"></blog-news-river>
+<blog-news-river maxentries="100" doc-root-path="<%= document.path %>"></blog-news-river>
 ```
 
 As the name of this tag implies, it produces the River of News format (by default).  Supported attributes are:
 
 * `maxentries` Controls the maximum number of blog entries to show on the index page.
 * `template` Changes the template to use.  By default this is `blog-news-river.html.ejs`.  If you want to change the layout, you can either override this template, or you can specify a template using this attribute.
-
+* `doc-root-path` Overrides the `rootPath` setting in the blog configuration, so that the index is generated relative to the current directory.
 
 ```html
 <blog-rss-icon></blog-rss-icon>
