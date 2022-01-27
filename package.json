@@ -29,7 +29,7 @@
   "bin": {
     "akashacms-blog-podcast": "cli.js"
   },
-  "version": "0.8.0",
+  "version": "0.8.1",
   "engines": {
     "node": ">=12.2"
   },

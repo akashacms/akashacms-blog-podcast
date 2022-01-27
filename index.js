@@ -236,8 +236,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         }));
     }
 
-    /*
-     * For future - for ForerunnerDB View */
+
     blogSelector(tag) {
 
         if (!this.isBlogtag(tag)) {
@@ -245,8 +244,12 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         }
 
         const blogcfg = this.blogcfg(tag);
-        // const viewInfo = this.viewInfo(tag);
-        // if (viewInfo.selector) return viewInfo.selector;
+        return this.blogSelectorForCFG(blogcfg, tag);
+    }
+
+    /*
+     * For future - for ForerunnerDB View */
+    blogSelectorForCFG(blogcfg, tag) {
 
         const selector = {
             docMetadata: {
@@ -291,6 +294,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         if (typeof blogcfg.rootPath === 'string') {
             // There might have been a 'matchers.renderpath' in which case
             // we want to convert it into a $and clause to match both.
+            // console.log(`blogSelector blogcfg.rootPath ${blogcfg.rootPath}`);
             if (blogcfg.rootPath !== '') {
                 let rootPathMatch = new RegExp(`^${blogcfg.rootPath}`);
                 if (selector.renderPath) {
@@ -413,7 +417,9 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             throw new Error(`findBlogDocs no blogcfg`);
         }
 
-        const selector = this.blogSelector(blogtag);
+        const selector = this.blogSelectorForCFG(blogcfg, blogtag);
+
+        // console.log(`findBlogDocs ${blogtag}`, selector);
 
         /*
 
@@ -536,6 +542,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         // Fill in the data expected by blog-podcast templates
         let documents = [];
         for (let doc of _documents) {
+            // console.log(`findBlogDocs ${blogtag}`, doc.vpath);
             documents.push(await filecache.documents.readDocument(doc));
         }
         for (let doc of documents) {
@@ -670,6 +677,8 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
 
         // console.log(`BlogNewsRiverElement duplicate blogcfg ${(new Date() - _start) / 1000} seconds`);
 
+        // console.log(`blog-news-river rootPath ${rootPath} docRootPath ${docRootPath} computed blogcfg`, _blogcfg);
+
         let documents = await this.array.options.config.plugin(pluginName)
                     .findBlogDocs(this.array.options.config, _blogcfg, blogtag);
 
@@ -684,7 +693,7 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
         }
 
         /* for (let item of documents) {
-            console.log(`${item.vpath} ${item.docMetadata.publicationDate}`);
+            console.log(`${blogtag} ${metadata.document.path} ${item.vpath} ${item.docMetadata.publicationDate}`);
         } */
 
         let ret = await akasha.partial(this.array.options.config, template, {
