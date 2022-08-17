@@ -33,10 +33,12 @@ program
     .action(async (configFN, cfg) => {
         try {
             const config = require(path.join(process.cwd(), configFN));
-            await config.setup();
+            let akasha = config.akasha;
+            await akasha.cacheSetup(config);
+            await akasha.fileCachesReady(config);
             const blogcfg = config.plugin(pluginName).options.bloglist[cfg];
             console.log(blogcfg);
-            await config.close();
+            await akasha.closeCaches();
         } catch (e) {
             console.error(`cfg command ERRORED ${e.stack}`);
         }
@@ -49,13 +51,14 @@ program
         try {
             console.log(`items for ${cfg} `);
             const config = require(path.join(process.cwd(), configFN));
+            let akasha = config.akasha;
             await akasha.cacheSetup(config);
-            await akasha.setupDocuments(config);
+            await akasha.fileCachesReady(config);
             let filecache = await akasha.filecache;
             // console.log(filecache.documents);
             await filecache.documents.isReady();
             const blogcfg = config.plugin(pluginName).options.bloglist[cfg];
-            console.log(`items for ${cfg} `, blogcfg);
+            console.log(`Blog configuration for ${cfg} `, blogcfg);
             const items = await config.plugin(pluginName)
                                     .findBlogDocs(config, blogcfg, cfg);
                                     // .findBlogDocs(config, blogcfg, cfg);
@@ -75,8 +78,9 @@ program
     .action(async (configFN, cfg) => {
         try {
             const config = require(path.join(process.cwd(), configFN));
+            let akasha = config.akasha;
             await akasha.cacheSetup(config);
-            await akasha.setupDocuments(config);
+            await akasha.fileCachesReady(config);
             let filecache = await akasha.filecache;
             // console.log(filecache.documents);
             await filecache.documents.isReady();

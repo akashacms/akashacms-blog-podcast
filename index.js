@@ -366,11 +366,12 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             if (doc.docMetadata
              && doc.docMetadata.blogtag) {
                 // This could possibly be in a blog, but not in this blog
-                if (Array.isArray(blogtag)
-                 && !blogtag.includes(doc.docMetadata.blogtag)) {
+                // console.log(`blog podcast filterfunc ${doc.vpath} ${util.inspect(options.blogtag)} ${util.inspect(doc?.docMetadata?.blogtag)}`);
+                if (Array.isArray(options.blogtags)
+                 && !options.blogtags.includes(doc.docMetadata.blogtag)) {
                     return false;
-                } else if (typeof blogtag === 'string'
-                 && doc.docMetadata.blogtag !== blogtag) {
+                } else if (typeof options.blogtags === 'string'
+                 && doc.docMetadata.blogtag !== options.blogtags) {
                     return false;
                 }
             } else if (!doc.docMetadata || !doc.docMetadata.blogtag) {
