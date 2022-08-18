@@ -386,29 +386,34 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 
         let dateErrors = [];
         /* selector.sortFunc = async (a, b) => {
-            // if (!a.stat) a.stat = await fsp.stat(a.fspath);
-            let publA = a.docMetadata && a.docMetadata.publicationDate 
-                    ? a.docMetadata.publicationDate : a.stats.mtime;
-            let aPublicationDate = Date.parse(publA);
-            if (isNaN(aPublicationDate)) {
-                dateErrors.push(`findBlogDocs ${a.renderPath} BAD DATE publA ${publA}`);
+            let aPublicationTime = new Date(a.publicationDate).getTime();
+            if (isNaN(aPublicationTime)) {
+                dateErrors.push(`findBlogDocs ${a.vpath} BAD DATE ${aPublicationTime}`);
             }
 
-            // if (!b.stat) b.stat = await fsp.stat(b.fspath);
-            let publB = b.docMetadata && b.docMetadata.publicationDate 
-                    ? b.docMetadata.publicationDate : b.stats.mtime;
-            let bPublicationDate = Date.parse(publB);
-            // console.log(`findBlogDocs ${a.vpath} publA ${publA} aPublicationDate ${aPublicationDate} ${b.vpath} publB ${publB} bPublicationDate ${bPublicationDate}`);
-            if (isNaN(bPublicationDate)) {
-                dateErrors.push(`findBlogDocs ${b.renderPath} BAD DATE publB ${publB}`);
+            let bPublicationTime = new Date(b.publicationDate).getTime();
+            console.log(`findBlogDocs ${a.vpath} ${aPublicationTime} ${b.vpath} ${bPublicationTime}`);
+            if (isNaN(bPublicationTime)) {
+                dateErrors.push(`findBlogDocs ${b.vpath} BAD DATE ${bPublicationTime}`);
             }
-            if (aPublicationDate < bPublicationDate) return -1;
-            else if (aPublicationDate === bPublicationDate) return 0;
+            if (aPublicationTime < bPublicationTime) return -1;
+            else if (aPublicationTime === bPublicationTime) return 0;
             else return 1;
         }; */
 
-        selector.sortBy = 'publicationMTIME';
-        selector.reverse = true;
+        selector.sortBy = 'publicationTime';
+        selector.sortByDescending = true;
+        // selector.reverse = true;
+
+        if (typeof blogcfg.maxEntries === 'number'
+         && blogcfg.maxEntries > 0) {
+            selector.limit = blogcfg.maxEntries;
+        }
+
+        if (typeof blogcfg.startAt === 'number'
+         && blogcfg.startAt >= 0) {
+            selector.offset = blogcfg.startAt;
+        }
 
         // console.log(selector);
 
@@ -418,47 +423,6 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             throw dateErrors;
         } 
 
-        /*
-         * With ForerunnerDB it is possible for the database
-         * query to both sort the results (using $orderBy) and
-         * to limit the result set size (using $limit).
-         *
-         * But this was found to not work in this case.  The number
-         * of entries was correctly limited, but they were not
-         * correctly sorted.  That is, I tried this limitor clause
-         *
-         *   {
-         *     $page: 0,
-         *     $limit: maxEntries,
-         *     $orderBy: { docMetadata: { publicationDate: 1 }}
-         *   }
-         *
-         * But the resulting list was from somewhere in the middle
-         * of the set of documents, rather than the first N
-         * entries.
-         *
-         * Even this limitor:
-         *
-         *   {
-         *     $orderBy: { docMetadata: { publicationDate: 1 }}
-         *   }
-         *
-         * That gave us a similar random set of items from the
-         * middle of the blog, rather than the first few.
-         *
-         * It's chosen instead to not use ForerunnerDB for
-         * either purpose, and to handle sorting and limiting
-         * outside of the Forerunner query.
-         *
-         * The result is that <code>coll.find</code> below always
-         * returns the full set of entries in the blog.  The
-         * <code>sort</code> and <code>reverse</code> phases will
-         * both receive the full set of entries.  That way we
-         * reliably know the <code>maxEntries</code> is working
-         * with a full set.
-         */
-
-
         // Performance testing
         // console.log(`findBlogDocs ${blogtag} options setup ${(new Date() - _start) / 1000} seconds`);
 
@@ -466,69 +430,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         // Performance testing
         // console.log(`findBlogDocs ${blogtag} after searching ${_documents.length} documents ${(new Date() - _start) / 1000} seconds`);
 
-        // Fill in the data expected by blog-podcast templates
-        /* let documents = [];
-        for (let doc of _documents) {
-            // console.log(`findBlogDocs ${blogtag}`, doc.vpath);
-            documents.push(doc);
-        }
-        for (let doc of documents) {
-            if (!doc.metadata) console.log(`findBlogDocs DID NOT FIND METADATA IN ${doc.vpath}`, doc);
-            if (!doc.stat) {
-                doc.stat = await fs.stat(doc.fspath);
-            }
-        } */
-
-        // Performance testing
-        // console.log(`findBlogDocs ${blogtag} after newInitMetadata ${documents.length} documents ${(new Date() - _start) / 1000} seconds`);
-
-        /* let dateErrors = [];
-        documents.sort((a, b) => {
-            let publA = a.docMetadata && a.docMetadata.publicationDate 
-                    ? a.docMetadata.publicationDate : a.stat.mtime;
-            let aPublicationDate = Date.parse(publA);
-            if (isNaN(aPublicationDate)) {
-                dateErrors.push(`findBlogDocs ${a.renderPath} BAD DATE publA ${publA}`);
-            }
-            let publB = b.docMetadata && b.docMetadata.publicationDate 
-                    ? b.docMetadata.publicationDate : b.stat.mtime;
-            let bPublicationDate = Date.parse(publB);
-            // console.log(`findBlogDocs publA ${publA} aPublicationDate ${aPublicationDate} publB ${publB} bPublicationDate ${bPublicationDate}`);
-            if (isNaN(bPublicationDate)) {
-                dateErrors.push(`findBlogDocs ${b.renderPath} BAD DATE publB ${publB}`);
-            }
-            if (aPublicationDate < bPublicationDate) return -1;
-            else if (aPublicationDate === bPublicationDate) return 0;
-            else return 1;
-        });
-        if (dateErrors.length >= 1) {
-            throw dateErrors;
-        } */
-
-
-        // Performance testing
-        // console.log(`findBlogDocs ${blogtag} after reversing ${documents.length} documents ${(new Date() - _start) / 1000} seconds`);
-
-        // Limit the number of entries
-        /* if (typeof blogcfg.maxEntries !== 'undefined') {
-            let maxEntries;
-            try {
-                maxEntries = Number.parseInt(blogcfg.maxEntries);
-            } catch (err) {
-                maxEntries = undefined;
-            }
-            let count = 0;
-            documents = documents.filter(doc => {
-                let ret = true;
-                if (count > maxEntries) return false;
-                count++;
-                return ret;
-            });
-            // Performance testing
-            // console.log(`findBlogDocs ${blogtag} after limiting entries ${documents.length} documents ${(new Date() - _start) / 1000} seconds`);
-        } */
-
-        return documents; //.reverse();
+        return documents;
     }
 
     async findBlogIndexes(config, blogcfg) {
@@ -537,33 +439,15 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         const filecache = await akasha.filecache;
         return filecache.search({
             rendersToHTML: true,
-            reverse: true,
+            sortBy: 'publicationTime',
+            sortByDescending: true,
+            limit: blogcfg.maxEntries ? blogcfg.maxEntries : undefined,
+            // reverse: true,
             pathmatch: blogcfg.indexmatchers.path ? blogcfg.indexmatchers.path : undefined,
 
             // glob: '**/*.html',
             layouts: blogcfg.indexmatchers.layouts ? blogcfg.indexmatchers.layouts : undefined,
             rootPath: blogcfg.rootPath ? blogcfg.rootPath : undefined,
-            sortFunc: async (a, b) => {
-                // if (!a.stat) a.stat = await fsp.stat(a.fspath);
-                let publA = a.docMetadata && a.docMetadata.publicationDate 
-                        ? a.docMetadata.publicationDate : a.stats.mtime;
-                let aPublicationDate = Date.parse(publA);
-                if (isNaN(aPublicationDate)) {
-                    dateErrors.push(`findBlogDocs ${a.renderPath} BAD DATE publA ${publA}`);
-                }
-    
-                // if (!b.stat) b.stat = await fsp.stat(b.fspath);
-                let publB = b.docMetadata && b.docMetadata.publicationDate 
-                        ? b.docMetadata.publicationDate : b.stats.mtime;
-                let bPublicationDate = Date.parse(publB);
-                // console.log(`findBlogDocs publA ${publA} aPublicationDate ${aPublicationDate} publB ${publB} bPublicationDate ${bPublicationDate}`);
-                if (isNaN(bPublicationDate)) {
-                    dateErrors.push(`findBlogDocs ${b.renderPath} BAD DATE publB ${publB}`);
-                }
-                if (aPublicationDate < bPublicationDate) return -1;
-                else if (aPublicationDate === bPublicationDate) return 0;
-                else return 1;
-            }
         });
     }
 
@@ -674,11 +558,21 @@ class BlogNewsIndexElement extends mahabhuta.CustomElement {
         var blogcfg = this.array.options.bloglist[blogtag];
         if (!blogcfg) throw new Error('No blog configuration found for blogtag '+ blogtag);
 
+        let _blogcfg = {};
+        for (let key in blogcfg) {
+            _blogcfg[key] = blogcfg[key];
+        }
+
+        let maxEntries = $element.attr('maxentries');
+        if (maxEntries) {
+            _blogcfg.maxEntries = maxEntries;
+        }
+
         var template = $element.attr("template");
         if (!template) template = "blog-news-indexes.html.ejs";
 
         let indexDocuments = await this.array.options.config.plugin(pluginName)
-                .findBlogIndexes(this.array.options.config, blogcfg);
+                .findBlogIndexes(this.array.options.config, _blogcfg);
         return akasha.partial(this.array.options.config, template, {
                     indexDocuments
                 });
