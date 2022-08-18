@@ -34,8 +34,6 @@
     "node": ">=12.2"
   },
   "scripts": {
-      "dopublish": "npm publish --access public"
-  },
-  "dependencies": {
+    "dopublish": "npm publish --access public"
   }
 }

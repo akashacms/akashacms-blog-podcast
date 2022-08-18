@@ -369,21 +369,23 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
                 // console.log(`blog podcast filterfunc ${doc.vpath} ${util.inspect(options.blogtag)} ${util.inspect(doc?.docMetadata?.blogtag)}`);
                 if (Array.isArray(options.blogtags)
                  && !options.blogtags.includes(doc.docMetadata.blogtag)) {
+                    // console.log(`findBlogDocs filterfunc ${doc.metaData.blogtag} not in ${util.inspect(options.blogtags)} ${doc.vpath}`);
                     return false;
                 } else if (typeof options.blogtags === 'string'
                  && doc.docMetadata.blogtag !== options.blogtags) {
+                    // console.log(`findBlogDocs filterfunc ${doc.metaData.blogtag} not in ${options.blogtags} ${doc.vpath}`);
                     return false;
                 }
             } else if (!doc.docMetadata || !doc.docMetadata.blogtag) {
                 // This cannot be in any blog
+                // console.log(`findBlogDocs filterfunc NOT IN ANY BLOG ${doc.vpath}`)
                 return false;
             }
             return true;
         };
 
         let dateErrors = [];
-
-        selector.sortFunc = async (a, b) => {
+        /* selector.sortFunc = async (a, b) => {
             // if (!a.stat) a.stat = await fsp.stat(a.fspath);
             let publA = a.docMetadata && a.docMetadata.publicationDate 
                     ? a.docMetadata.publicationDate : a.stats.mtime;
@@ -396,15 +398,16 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             let publB = b.docMetadata && b.docMetadata.publicationDate 
                     ? b.docMetadata.publicationDate : b.stats.mtime;
             let bPublicationDate = Date.parse(publB);
-            // console.log(`findBlogDocs publA ${publA} aPublicationDate ${aPublicationDate} publB ${publB} bPublicationDate ${bPublicationDate}`);
+            // console.log(`findBlogDocs ${a.vpath} publA ${publA} aPublicationDate ${aPublicationDate} ${b.vpath} publB ${publB} bPublicationDate ${bPublicationDate}`);
             if (isNaN(bPublicationDate)) {
                 dateErrors.push(`findBlogDocs ${b.renderPath} BAD DATE publB ${publB}`);
             }
             if (aPublicationDate < bPublicationDate) return -1;
             else if (aPublicationDate === bPublicationDate) return 0;
             else return 1;
-        };
+        }; */
 
+        selector.sortBy = 'publicationMTIME';
         selector.reverse = true;
 
         // console.log(selector);
