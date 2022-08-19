@@ -492,7 +492,7 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
 
         let maxEntries = $element.attr('maxentries');
         if (maxEntries) {
-            _blogcfg.maxEntries = maxEntries;
+            _blogcfg.maxEntries = Number.parseInt(maxEntries);
         }
 
         let template = $element.attr("template");
@@ -565,7 +565,7 @@ class BlogNewsIndexElement extends mahabhuta.CustomElement {
 
         let maxEntries = $element.attr('maxentries');
         if (maxEntries) {
-            _blogcfg.maxEntries = maxEntries;
+            _blogcfg.maxEntries = Number.parseInt(maxEntries);
         }
 
         var template = $element.attr("template");
