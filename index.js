@@ -285,7 +285,9 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             throw new Error(`findBlogDocs given invalid blogtag ${blogtag}`);
         }
 
-        const filecache = await akasha.filecache;
+        if (akasha !== config.akasha) {
+            console.error(`findBlogDocs akasha !== config.akasha`);
+        }
 
         // Performance testing
         // const _start = new Date();
@@ -417,7 +419,10 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 
         // console.log(selector);
 
-        let documents = filecache.documents.search(selector);
+        // console.log(filecache);
+        // console.log(await config.documentsCache());
+        
+        let documents = (await config.documentsCache()).search(selector);
         
         if (dateErrors.length >= 1) {
             throw dateErrors;
@@ -436,7 +441,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     async findBlogIndexes(config, blogcfg) {
         if (!blogcfg.indexmatchers) return [];
 
-        const filecache = await akasha.filecache;
+        const filecache = await this.akasha.filecache;
         return filecache.search({
             rendersToHTML: true,
             sortBy: 'publicationTime',
