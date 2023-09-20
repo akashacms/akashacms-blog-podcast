@@ -417,7 +417,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
             selector.offset = blogcfg.startAt;
         }
 
-        // console.log(selector);
+        // console.log(`findBlogDocs`, selector);
 
         // console.log(filecache);
         // console.log(await config.documentsCache());
