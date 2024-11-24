@@ -16,37 +16,38 @@
  *  limitations under the License.
  */
 
-'use strict';
-
-const fs       = require('fs/promises');
-const path     = require('path');
-const util     = require('util');
-const url      = require('url');
-const akasha   = require('akasharender');
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
+import util from 'node:util';
+import url from 'node:url';
+import akasha from 'akasharender';
 const mahabhuta = akasha.mahabhuta;
 
 const pluginName = "@akashacms/plugins-blog-podcast";
 
-const _plugin_config = Symbol('config');
-const _plugin_options = Symbol('options');
-const _plugin_views = Symbol('views');
+const __dirname = import.meta.dirname;
 
-module.exports = class BlogPodcastPlugin extends akasha.Plugin {
-    constructor() { super(pluginName); }
+export class BlogPodcastPlugin extends akasha.Plugin {
+
+    #config;
+
+    constructor() {
+        super(pluginName);
+
+    }
 
     configure(config, options) {
-        this[_plugin_config] = config;
-        this[_plugin_options] = options;
+        this.#config = config;
+        this.options = options;
         // Possible place to store ForerunnerDB views
         // this[_plugin_views] = {};
         options.config = config;
 		config.addPartialsDir(path.join(__dirname, 'partials'));
-        config.addMahabhuta(module.exports.mahabhutaArray(options));
+        config.addMahabhuta(mahabhutaArray(options));
         if (!options.bloglist) options.bloglist = [];
 	}
 
-    get config() { return this[_plugin_config]; }
-    get options() { return this[_plugin_options]; }
+    get config() { return this.#config; }
 
     blogcfg(tag) { return this.options.bloglist[tag]; }
 
@@ -59,17 +60,6 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         this.options.bloglist[name] = blogPodcast;
         return this.config;
     }
-
-    /*
-     * For future - to implement ForerunnerDB views
-    viewInfo(tag) {
-        if (!this.isBlogtag(tag)) throw new Error(`viewInfo INVALID BLOGTAG ${tag}`);
-        if (!this[_plugin_views][tag]) {
-            this[_plugin_views][tag] = {};
-        }
-        return this[_plugin_views][tag];
-    }
-    */
 
     isLegitLocalHref(config, href) {
         // console.log(`isLegitLocalHref ${util.inspect(this.options.bloglist)} === ${href}?`);
@@ -422,7 +412,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
         // console.log(filecache);
         // console.log(await config.documentsCache());
         
-        let documents = (await config.documentsCache()).search(selector);
+        let documents = await akasha.filecache.documentsCache.search(selector);
         
         if (dateErrors.length >= 1) {
             throw dateErrors;
@@ -441,8 +431,8 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
     async findBlogIndexes(config, blogcfg) {
         if (!blogcfg.indexmatchers) return [];
 
-        const filecache = await this.akasha.filecache;
-        return filecache.search({
+        const documents = this.akasha.filecache.documentsCache;
+        return documents.search({
             rendersToHTML: true,
             sortBy: 'publicationTime',
             sortByDescending: true,
@@ -458,7 +448,7 @@ module.exports = class BlogPodcastPlugin extends akasha.Plugin {
 
 }
 
-module.exports.mahabhutaArray = function(options) {
+export function mahabhutaArray(options) {
     let ret = new mahabhuta.MahafuncArray(pluginName, options);
     ret.addMahafunc(new BlogNewsRiverElement());
     ret.addMahafunc(new BlogRSSIconElement());

@@ -18,9 +18,9 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-const path      = require('path');
-const program   = require('commander');
-const akasha    = require('akasharender');
+import path from 'node:path';
+import { program } from 'commander';
+import akasha from 'akasharender';
 
 const pluginName = '@akashacms/plugins-blog-podcast';
 
@@ -32,7 +32,7 @@ program
     .description('Print blog configuration')
     .action(async (configFN, cfg) => {
         try {
-            const config = require(path.join(process.cwd(), configFN));
+            const config = (await import(path.join(process.cwd(), configFN))).default;
             let akasha = config.akasha;
             await akasha.cacheSetup(config);
             await akasha.fileCachesReady(config);
@@ -50,7 +50,7 @@ program
     .action(async (configFN, cfg) => {
         try {
             console.log(`items for ${cfg} `);
-            const config = require(path.join(process.cwd(), configFN));
+            const config = (await import(path.join(process.cwd(), configFN))).default;
             let akasha = config.akasha;
             await akasha.cacheSetup(config);
             await akasha.fileCachesReady(config);
@@ -77,7 +77,7 @@ program
     .description('Print index for blog')
     .action(async (configFN, cfg) => {
         try {
-            const config = require(path.join(process.cwd(), configFN));
+            const config = (await import(path.join(process.cwd(), configFN))).default;
             let akasha = config.akasha;
             await akasha.cacheSetup(config);
             await akasha.fileCachesReady(config);
