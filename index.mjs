@@ -288,7 +288,7 @@ export class BlogPodcastPlugin extends akasha.Plugin {
 
         const selector = {};
 
-        selector.rendersToHTML = blogcfg.matchers.rendersToHTML;
+        selector.rendersToHTML = true;
 
         if (blogcfg.matchers && blogcfg.matchers.path) {
             selector.pathmatch = blogcfg.matchers.path;
@@ -305,44 +305,19 @@ export class BlogPodcastPlugin extends akasha.Plugin {
         // down within the blog should only list the items in that directory
         // and below.
         //
-        // Hence, rootPath is a simple string, but we treat it as
-        // a RegExp like:  /^rootPath/  .. this way the test is at
-        // the beginning of the string.
+        // The point of `rootPath` versus `renderpath` is
+        // the difference between an SQL LIKE versus using
+        // regular expressions.  RootPath with the SQLITE3 cache
+        // is matched using `renderPath LIKE 'rootPath%'` wheres
+        // the others are matched with regular expressions.
 
         if (blogcfg.rootPath) {
-            if (selector.renderpathmatch) {
-                const m = selector.renderpathmatch;
-                selector.renderpathmatch = [
-                    m, `^${blogcfg.rootPath}`
-                ];
-            } else {
-                selector.renderpathmatch = `^${blogcfg.rootPath}`;
-            }
+            selector.rootPath = blogcfg.rootPath;
         }
-
-        // What's the point of rootPath when the same can
-        // be handled with renderPath?
-
-        /* if (typeof blogcfg.rootPath === 'string'
-         && blogcfg.rootPath !== '') {
-            // There might have been a 'matchers.renderpath' in which case
-            // we want to convert it into a $and clause to match both.
-            // console.log(`blogSelector blogcfg.rootPath ${blogcfg.rootPath}`);
-            const rootPathMatch = `^${blogcfg.rootPath}`;
-            if (selector.renderPath) {
-                const renderPathMatch = selector.renderPath;
-                delete selector.renderPath;
-                selector['$and'] = [
-                    { renderPath: { '$regex': renderPathMatch } },
-                    { renderPath: { '$regex': rootPathMatch } }
-                ];
-            } else {
-                selector.renderPath = {
-                    '$regex': rootPathMatch
-                }
-            }
-        } */
-
+        // Also support rootPath in the matchers
+        if (blogcfg.matchers.rootPath) {
+            selector.rootPath = blogcfg.matchers.rootPath;
+        }
 
         if (blogcfg.matchers && blogcfg.matchers.layouts) {
             if (Array.isArray(blogcfg.matchers.layouts)) {
@@ -480,10 +455,7 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
 
         // console.log(`BlogNewsRiverElement found blogcfg ${(new Date() - _start) / 1000} seconds`);
 
-        let _blogcfg = {};
-        for (let key in blogcfg) {
-            _blogcfg[key] = blogcfg[key];
-        }
+        let _blogcfg = structuredClone(blogcfg);
 
         let maxEntries = $element.attr('maxentries');
         if (maxEntries) {
@@ -491,16 +463,16 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
         }
 
         let template = $element.attr("template");
-        if (!template) template = "blog-news-river.html.ejs";
+        if (!template) template = "blog-news-river.html.njk";
 
         let rootPath = $element.attr('root-path');
         if (rootPath) {
-            _blogcfg.rootPath = rootPath;
+            _blogcfg.matchers.rootPath = rootPath;
         }
 
         let docRootPath = $element.attr('doc-root-path');
         if (docRootPath) {
-            _blogcfg.rootPath = path.dirname(docRootPath);
+            _blogcfg.matchers.rootPath = path.dirname(docRootPath);
         }
 
         // console.log(`BlogNewsRiverElement duplicate blogcfg ${(new Date() - _start) / 1000} seconds`);
@@ -510,9 +482,14 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
         let documents = await this.array.options.config.plugin(pluginName)
                     .findBlogDocs(this.array.options.config, _blogcfg, blogtag);
 
-        /* console.log(`blog-news-river ${blogtag} `, documents.map(d => {
-            return { vpath: d.vpath, date: d.docMetadata.publicationDate };
-        })); */
+        // console.log(`blog-news-river ${blogtag} ${util.inspect(_blogcfg)} `, documents.map(d => {
+        //     return {
+        //         vpath: d.vpath,
+        //         renderPath: d.renderPath,
+        //         date: d.docMetadata.publicationDate
+        //     };
+        // }));
+
         // let documents = await this.array.options.config.plugin(pluginName)
         //            .NEWfindBlogDocs(this.array.options.config, _blogcfg, blogtag, docRootPath);
 
@@ -523,14 +500,16 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
             throw new Error(`BlogNewsRiverElement NO blog docs found for ${blogtag}`);
         }
 
-        /* for (let item of documents) {
-            console.log(`${blogtag} ${metadata.document.path} ${item.vpath} ${item.docMetadata.publicationDate}`);
-        } */
+        // for (let item of documents) {
+        //     console.log(`NEWS RIVER ITEM ${blogtag} ${metadata.document.path} ${item.vpath} ${item.renderPath} ${item.docMetadata.publicationDate}`);
+        // }
 
         let ret = await akasha.partial(this.array.options.config, template, {
             documents: documents,
             feedUrl: _blogcfg.rssurl
         });
+
+        // console.log(`NEWS RIVER RENDERED TO `, ret);
 
         // console.log(`BlogNewsRiverElement rendered ${(new Date() - _start) / 1000} seconds`);
         return ret;
