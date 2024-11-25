@@ -1,10 +1,10 @@
-<div>
+<div class="ak-blog-news-river-container">
     <a href="{{ feedUrl | safe }}"><img src="/img/rss_button.gif" align="right" width="50"/></a>
-    {{ for doc in documents }}
-        <span>
-            <a href="/{{ doc.renderPath | safe }}"><h2>{{ doc.docMetadata.title | safe }}</h2></a>
+    {% for doc in documents %}
+        <span class="ak-blog-news-river-item">
+            <a href="/{{ doc.renderPath | safe }}">{{ doc.docMetadata.title | safe }}</a>
             <span>({{ doc.docMetadata.publicationDate | safe }})
             {{ doc.docMetadata.teaser }}</span>
         </span>
-    {{ endfor }}
+    {% endfor %}
 </div>
