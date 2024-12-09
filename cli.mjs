@@ -34,8 +34,7 @@ program
         try {
             const config = (await import(path.join(process.cwd(), configFN))).default;
             let akasha = config.akasha;
-            await akasha.cacheSetup(config);
-            await akasha.fileCachesReady(config);
+            await akasha.setup(config);
             const blogcfg = config.plugin(pluginName).options.bloglist[cfg];
             console.log(blogcfg);
             await akasha.closeCaches();
@@ -49,19 +48,18 @@ program
     .description('Print items for blog')
     .action(async (configFN, cfg) => {
         try {
-            console.log(`items for ${cfg} `);
-            const config = (await import(path.join(process.cwd(), configFN))).default;
+            // console.log(`items for ${cfg} `);
+            const config = (await import(
+                path.join(process.cwd(), configFN)
+            )).default;
             let akasha = config.akasha;
-            await akasha.cacheSetup(config);
-            await akasha.fileCachesReady(config);
-            let filecache = await akasha.filecache;
+            await akasha.setup(config);
             // console.log(filecache.documents);
-            await filecache.documents.isReady();
             const blogcfg = config.plugin(pluginName).options.bloglist[cfg];
-            console.log(`Blog configuration for ${cfg} `, blogcfg);
+            // console.log(`Blog configuration for ${cfg} `, blogcfg);
             const items = await config.plugin(pluginName)
-                                    .findBlogDocs(config, blogcfg, cfg);
-                                    // .findBlogDocs(config, blogcfg, cfg);
+                    .findBlogDocs(config, blogcfg, cfg);
+                    // .findBlogDocs(config, blogcfg, cfg);
             for (let item of items) {
                 // console.log(`blog item ${cfg} `, item);
                 console.log(`${item.vpath} ${item.docMetadata.publicationDate}`);
@@ -79,14 +77,10 @@ program
         try {
             const config = (await import(path.join(process.cwd(), configFN))).default;
             let akasha = config.akasha;
-            await akasha.cacheSetup(config);
-            await akasha.fileCachesReady(config);
-            let filecache = await akasha.filecache;
-            // console.log(filecache.documents);
-            await filecache.documents.isReady();
+            await akasha.setup(config);
             const blogcfg = config.plugin(pluginName).options.bloglist[cfg];
             const indexes = await config.plugin(pluginName)
-                                    .findBlogIndexes(config, blogcfg);
+                    .findBlogIndexes(config, blogcfg);
             for (let index of indexes) {
                 console.log(`blog index ${cfg} `, index);
             }

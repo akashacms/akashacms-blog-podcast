@@ -180,7 +180,7 @@ export class BlogPodcastPlugin extends akasha.Plugin {
                     url: u.toString(),
                     date: doc.docMetadata.publicationDate
                             ? doc.docMetadata.publicationDate
-                            : doc.stat.mtime
+                            : doc.mtimeMs
                 };
             });
 
@@ -370,7 +370,7 @@ export class BlogPodcastPlugin extends akasha.Plugin {
 
         selector.sortBy = 'publicationTime';
         selector.sortByDescending = true;
-        // selector.reverse = true;
+        selector.reverse = true;
 
         if (typeof blogcfg.maxEntries === 'number'
          && blogcfg.maxEntries > 0) {
@@ -403,6 +403,20 @@ export class BlogPodcastPlugin extends akasha.Plugin {
         return documents;
     }
 
+    /**
+     * This seems to be tasked with finding the
+     * index pages (index.html.EXT) in a blog. But,
+     * for what purpose?  And is this being used?
+     * There is no Mahafunc referring to this.
+     *
+     * Actually - BlogNewsIndexElement - blog-news-index,
+     * which corresponds to blog-news-indexes.html.njk
+     * and blog-news-indexes.html.ejs.
+     *
+     * @param {*} config 
+     * @param {*} blogcfg 
+     * @returns 
+     */
     async findBlogIndexes(config, blogcfg) {
         if (!blogcfg.indexmatchers) return [];
 
