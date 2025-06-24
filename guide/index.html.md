@@ -53,37 +53,24 @@ $ npm install @akashacms/plugins-blog-podcast --save
 
 This installs the plugin, and automatically adds it to the `dependencies` in `package.json`
 
-In the `config.js` (again, the AkashaRender style of `config.js`) add this:
+In the `config.mjs` (again, the AkashaRender style of `config.mjs`) add this:
 
 ```js
+import { BlogPodcastPlugin } from '@akashacms/plugins-blog-podcast';
+// ...
 config
-    ...
-    .use(require('@akashacms/plugins-blog-podcast'), {
+    // ...
+    .use(BlogPodcastPlugin, {
         bloglist: {
             // blog definitions
         }
     })
-    ...
-```
-
-If you are instead using the ESM format for your config file:
-
-```js
-import { BlogPodcastPlugin } from '@akashacms/plugins-blog-podcast';
-
-config
-    ...
-    .use(BlogPodcastPlugin, {
-        bloglist: {
-            ...
-        }
-    })
-    ...
+    // ...
 ```
 
 That much adds the Blog/Podcast support to AkashaCMS, but does not define any blogs.
 
-The blog-skeleton site has a full working `config.js`:  https://github.com/akashacms/akashacms-blog-skeleton/blob/master/config.js
+The blog-skeleton site has a full working `config.mjs`:  https://github.com/akashacms/akashacms-blog-skeleton/blob/master/config.js
 
 # Defining a blog
 
@@ -100,7 +87,7 @@ This comes from `akashacms-blog-skeleton`
 ```js
 config
     ...
-    .use(require('@akashacms/plugins-blog-podcast'), {
+    .use(BlogPodcastPlugin, {
         bloglist: {
             news: {
                 rss: {
@@ -217,6 +204,11 @@ The `blog.html.ejs` template (https://github.com/akashacms/akashacms-blog-skelet
   </section>
 </div>
 ```
+```html
+<partial file-name='disqus.html'></partial>
+```
+
+It's common in blogs to allow readers to leave comments.  AkashaCMS doesn't support commenting natively, however Disqus is a fine system that supports commenting on any kind of website.
 
 It's useful (perhaps) to organize the content documents in a directory structure, where the hierarchy has useful meaning.  In such a case, the `akashacms-breadcrumbs` plugin can give you a useful breadcrumb trail.
 
@@ -239,12 +231,6 @@ This is meant to be an attribution line, listing the author, the publication dat
 This tag figures out the "next" and "previous" entries in the blog.  Remember that blogs are sorted in reverse-chronological order, meaning presenting this as a blog means presenting the content in that order.  
 
 The `blog-next-prev` tag lists two links, to the Next and Previous entries in the blog.  That way the reader could read the entire blog by repeatedly clicking on one or the other of those links.  The `blog-next-prev.html.ejs` template is used in case you want to override the presentation.  
-
-```html
-<partial file-name='disqus.html'></partial>
-```
-
-It's common in blogs to allow readers to leave comments.  AkashaCMS doesn't support commenting natively, however Disqus is a fine system that supports commenting on any kind of website.
 
 ## Blog index page
 

@@ -1,5 +1,5 @@
 /**
- * Copyright 2015 David Herron
+ * Copyright 2015-2025 David Herron
  *
  * This file is part of AkashaCMS-embeddables (http://akashacms.com/).
  *
@@ -20,7 +20,12 @@ import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import util from 'node:util';
 import url from 'node:url';
-import akasha from 'akasharender';
+import akasha, {
+    Configuration,
+    CustomElement,
+    Munger,
+    PageProcessor
+} from 'akasharender';
 const mahabhuta = akasha.mahabhuta;
 
 const pluginName = "@akashacms/plugins-blog-podcast";
@@ -38,12 +43,12 @@ export class BlogPodcastPlugin extends akasha.Plugin {
 
     configure(config, options) {
         this.#config = config;
-        this.options = options;
-        // Possible place to store ForerunnerDB views
-        // this[_plugin_views] = {};
-        options.config = config;
+        // this.config = config;
+        this.akasha = config.akasha;
+        this.options = options ? options : {};
+        this.options.config = config;
 		config.addPartialsDir(path.join(__dirname, 'partials'));
-        config.addMahabhuta(mahabhutaArray(options));
+        config.addMahabhuta(mahabhutaArray(options, config, this.akasha, this));
         if (!options.bloglist) options.bloglist = [];
 	}
 
@@ -289,6 +294,7 @@ export class BlogPodcastPlugin extends akasha.Plugin {
         const selector = {};
 
         selector.rendersToHTML = true;
+        selector.blogtag = blogtag;
 
         if (blogcfg.matchers && blogcfg.matchers.path) {
             selector.pathmatch = blogcfg.matchers.path;
@@ -329,27 +335,31 @@ export class BlogPodcastPlugin extends akasha.Plugin {
             }
         }
 
-        selector.filterfunc = (config, options, doc) => {
-            if (doc.docMetadata
-             && doc.docMetadata.blogtag) {
-                // This could possibly be in a blog, but not in this blog
-                // console.log(`blog podcast filterfunc ${doc.vpath} ${util.inspect(options.blogtag)} ${util.inspect(doc?.docMetadata?.blogtag)}`);
-                if (Array.isArray(options.blogtags)
-                 && !options.blogtags.includes(doc.docMetadata.blogtag)) {
-                    // console.log(`findBlogDocs filterfunc ${doc.metaData.blogtag} not in ${util.inspect(options.blogtags)} ${doc.vpath}`);
-                    return false;
-                } else if (typeof options.blogtags === 'string'
-                 && doc.docMetadata.blogtag !== options.blogtags) {
-                    // console.log(`findBlogDocs filterfunc ${doc.metaData.blogtag} not in ${options.blogtags} ${doc.vpath}`);
-                    return false;
-                }
-            } else if (!doc.docMetadata || !doc.docMetadata.blogtag) {
-                // This cannot be in any blog
-                // console.log(`findBlogDocs filterfunc NOT IN ANY BLOG ${doc.vpath}`)
-                return false;
-            }
-            return true;
-        };
+        // This is solely about filtering for blogtag.
+        // This functionality is now handled as
+        // a search option.
+        
+        // selector.filterfunc = (config, options, doc) => {
+        //     if (doc.docMetadata
+        //      && doc.docMetadata.blogtag) {
+        //         // This could possibly be in a blog, but not in this blog
+        //         // console.log(`blog podcast filterfunc ${doc.vpath} ${util.inspect(options.blogtag)} ${util.inspect(doc?.docMetadata?.blogtag)}`);
+        //         if (Array.isArray(options.blogtags)
+        //          && !options.blogtags.includes(doc.docMetadata.blogtag)) {
+        //             // console.log(`findBlogDocs filterfunc ${doc.metaData.blogtag} not in ${util.inspect(options.blogtags)} ${doc.vpath}`);
+        //             return false;
+        //         } else if (typeof options.blogtags === 'string'
+        //          && doc.docMetadata.blogtag !== options.blogtags) {
+        //             // console.log(`findBlogDocs filterfunc ${doc.metaData.blogtag} not in ${options.blogtags} ${doc.vpath}`);
+        //             return false;
+        //         }
+        //     } else if (!doc.docMetadata || !doc.docMetadata.blogtag) {
+        //         // This cannot be in any blog
+        //         // console.log(`findBlogDocs filterfunc NOT IN ANY BLOG ${doc.vpath}`)
+        //         return false;
+        //     }
+        //     return true;
+        // };
 
         let dateErrors = [];
         /* selector.sortFunc = async (a, b) => {
@@ -437,19 +447,24 @@ export class BlogPodcastPlugin extends akasha.Plugin {
 
 }
 
-export function mahabhutaArray(options) {
+export function mahabhutaArray(
+    options,
+    config, // ?: Configuration,
+    akasha, // ?: any,
+    plugin  // ?: Plugin
+) {
     let ret = new mahabhuta.MahafuncArray(pluginName, options);
-    ret.addMahafunc(new BlogNewsRiverElement());
-    ret.addMahafunc(new BlogRSSIconElement());
-    ret.addMahafunc(new BlogRSSLinkElement());
-    ret.addMahafunc(new BlogRSSListElement());
-    ret.addMahafunc(new BlogNextPrevElement());
-    ret.addMahafunc(new BlogNewsIndexElement());
+    ret.addMahafunc(new BlogNewsRiverElement(config, akasha, plugin));
+    ret.addMahafunc(new BlogRSSIconElement(config, akasha, plugin));
+    ret.addMahafunc(new BlogRSSLinkElement(config, akasha, plugin));
+    ret.addMahafunc(new BlogRSSListElement(config, akasha, plugin));
+    ret.addMahafunc(new BlogNextPrevElement(config, akasha, plugin));
+    ret.addMahafunc(new BlogNewsIndexElement(config, akasha, plugin));
     return ret;
 };
 
 
-class BlogNewsRiverElement extends mahabhuta.CustomElement {
+class BlogNewsRiverElement extends CustomElement {
     get elementName() { return "blog-news-river"; }
     async process($element, metadata, dirty) {
         // const _start = new Date();
@@ -464,7 +479,7 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
 
         // log('blog-news-river '+ blogtag +' '+ metadata.document.path);
 
-        let blogcfg = this.array.options.bloglist[blogtag];
+        let blogcfg = this.options.bloglist[blogtag];
         if (!blogcfg) throw new Error('No blog configuration found for blogtag '+ blogtag);
 
         // console.log(`BlogNewsRiverElement found blogcfg ${(new Date() - _start) / 1000} seconds`);
@@ -493,8 +508,8 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
 
         // console.log(`blog-news-river rootPath ${rootPath} docRootPath ${docRootPath} computed blogcfg`, _blogcfg);
 
-        let documents = await this.array.options.config.plugin(pluginName)
-                    .findBlogDocs(this.array.options.config, _blogcfg, blogtag);
+        let documents = await this.config.plugin(pluginName)
+                    .findBlogDocs(this.config, _blogcfg, blogtag);
 
         // console.log(`blog-news-river ${blogtag} ${util.inspect(_blogcfg)} `, documents.map(d => {
         //     return {
@@ -518,7 +533,7 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
         //     console.log(`NEWS RIVER ITEM ${blogtag} ${metadata.document.path} ${item.vpath} ${item.renderPath} ${item.docMetadata.publicationDate}`);
         // }
 
-        let ret = await akasha.partial(this.array.options.config, template, {
+        let ret = await this.akasha.partial(this.config, template, {
             documents: documents,
             feedUrl: _blogcfg.rssurl
         });
@@ -531,7 +546,7 @@ class BlogNewsRiverElement extends mahabhuta.CustomElement {
     }
 }
 
-class BlogNewsIndexElement extends mahabhuta.CustomElement {
+class BlogNewsIndexElement extends CustomElement {
     get elementName() { return "blog-news-index"; }
     async process($element, metadata, dirty) {
         var blogtag = $element.attr("blogtag");
@@ -543,7 +558,7 @@ class BlogNewsIndexElement extends mahabhuta.CustomElement {
             throw new Error("NO BLOG TAG in blog-news-index "+ metadata.document.path);
         }
 
-        var blogcfg = this.array.options.bloglist[blogtag];
+        var blogcfg = this.options.bloglist[blogtag];
         if (!blogcfg) throw new Error('No blog configuration found for blogtag '+ blogtag);
 
         let _blogcfg = {};
@@ -559,15 +574,15 @@ class BlogNewsIndexElement extends mahabhuta.CustomElement {
         var template = $element.attr("template");
         if (!template) template = "blog-news-indexes.html.ejs";
 
-        let indexDocuments = await this.array.options.config.plugin(pluginName)
-                .findBlogIndexes(this.array.options.config, _blogcfg);
-        return akasha.partial(this.array.options.config, template, {
+        let indexDocuments = await this.config.plugin(pluginName)
+                .findBlogIndexes(this.config, _blogcfg);
+        return akasha.partial(this.config, template, {
                     indexDocuments
                 });
     }
 }
 
-class BlogRSSIconElement extends mahabhuta.CustomElement {
+class BlogRSSIconElement extends CustomElement {
     get elementName() { return "blog-rss-icon"; }
     process($element, metadata, dirty) {
         var blogtag = $element.attr("blogtag");
@@ -580,20 +595,20 @@ class BlogRSSIconElement extends mahabhuta.CustomElement {
         }
         var title = $element.attr("title");
 
-        var blogcfg = this.array.options.bloglist[blogtag];
+        var blogcfg = this.options.bloglist[blogtag];
         if (!blogcfg) throw new Error('No blog configuration found for blogtag '+ blogtag);
 
         var template = $element.attr("template");
         if (!template) template = "blog-rss-icon.html.ejs";
 
-        return akasha.partial(this.array.options.config, template, {
+        return this.akasha.partial(this.config, template, {
             feedUrl: blogcfg.rssurl,
             title: title
         });
     }
 }
 
-class BlogRSSLinkElement extends mahabhuta.CustomElement {
+class BlogRSSLinkElement extends CustomElement {
     get elementName() { return "blog-rss-link"; }
     process($element, metadata, dirty) {
         var blogtag = $element.attr("blogtag");
@@ -605,19 +620,19 @@ class BlogRSSLinkElement extends mahabhuta.CustomElement {
             throw new Error("NO BLOG TAG in blog-rss-link"+ metadata.document.path);
         }
 
-        var blogcfg = this.array.options.bloglist[blogtag];
+        var blogcfg = this.options.bloglist[blogtag];
         if (!blogcfg) throw new Error('No blog configuration found for blogtag '+ blogtag);
 
         var template = $element.attr("template");
         if (!template) template = "blog-rss-link.html.ejs";
 
-        return akasha.partial(this.array.options.config, template, {
+        return this.akasha.partial(this.config, template, {
             feedUrl: blogcfg.rssurl
         });
     }
 }
 
-class BlogRSSListElement extends mahabhuta.CustomElement {
+class BlogRSSListElement extends CustomElement {
     get elementName() { return "blog-feeds-all"; }
     process($element, metadata, dirty) {
         const template = $element.attr('template') 
@@ -626,27 +641,27 @@ class BlogRSSListElement extends mahabhuta.CustomElement {
         const id = $element.attr('id');
         const additionalClasses = $element.attr('additional-classes')
         dirty();
-        return akasha.partial(this.array.options.config, template, {
+        return this.akasha.partial(this.config, template, {
             id, additionalClasses,
-            bloglist: this.array.options.bloglist
+            bloglist: this.options.bloglist
         });
     }
 }
 
-class BlogNextPrevElement extends mahabhuta.CustomElement {
+class BlogNextPrevElement extends CustomElement {
     get elementName() { return "blog-next-prev"; }
     async process($element, metadata, dirty) {
         // const _start = new Date();
         if (! metadata.blogtag) { return; }
-        let blogcfg = this.array.options.bloglist[metadata.blogtag];
+        let blogcfg = this.options.bloglist[metadata.blogtag];
         if (!blogcfg) throw new Error(`No blog configuration found for blogtag ${metadata.blogtag} in ${metadata.document.path}`);
 
         let docpathNoSlash = metadata.document.path.startsWith('/')
                         ? metadata.document.path.substring(1)
                         : metadata.document.path;
-        let documents = await this.array.options.config
+        let documents = await this.config
                 .plugin(pluginName)
-                .findBlogDocs(this.array.options.config, blogcfg, metadata.blogtag);
+                .findBlogDocs(this.config, blogcfg, metadata.blogtag);
 
         // let documents = await this.array.options.config.plugin(pluginName)
         //        .NEWfindBlogDocs(this.array.options.config, blogcfg, metadata.blogtag);
@@ -675,7 +690,7 @@ class BlogNextPrevElement extends mahabhuta.CustomElement {
             // console.log(`prevDoc ${docIndex} ${prevDoc.renderPath} ${prevDoc.docMetadata.title}`);
             // console.log(`thisDoc ${docIndex} ${thisDoc.renderPath} ${thisDoc.docMetadata.title}`);
             // console.log(`nextDoc ${docIndex} ${nextDoc.renderPath} ${nextDoc.docMetadata.title}`);
-            let html = await akasha.partial(this.array.options.config, 'blog-next-prev.html.ejs', {
+            let html = await this.akasha.partial(this.options.config, 'blog-next-prev.html.ejs', {
                 prevDoc, nextDoc
             });
             // console.log(`BlogNextPrevElement findBlogDocs FINISH ${(new Date() - _start)/1000} seconds`);
