@@ -26,16 +26,16 @@
     "type": "git",
     "url": "git://github.com/akashacms/akashacms-blog-podcast.git"
   },
+  "type": "module",
+  "main": "index.mjs",
   "bin": {
-    "akashacms-blog-podcast": "cli.js"
+    "akashacms-blog-podcast": "cli.mjs"
   },
-  "version": "0.8.1",
+  "version": "0.9.0",
   "engines": {
-    "node": ">=12.2"
+    "node": ">=24.x"
   },
   "scripts": {
-      "dopublish": "npm publish --access public"
-  },
-  "dependencies": {
+    "dopublish": "npm publish --access public"
   }
 }
