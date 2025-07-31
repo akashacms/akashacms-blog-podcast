@@ -15,6 +15,7 @@ How do we define a blog from some other kind of website?
 In AkashaCMS, the BlogPodcast plugin supports implementing one or more than one blogs per website.  Each blog contains configuration, _matchers_, describing how to determine which documents are part of the specific blog.  Hence we can that a blog is a collection of documents with these characteristics:
 
 * _Blogtag_ - This is a field in the document metadata which corresponds to the `blogPodcast` configuration in the configuration file.
+* _Blogtags_ - In some cases you want a "blog" to match the content of multiple blogs on the site.  Add a blogtags matcher whose value is an array of strings with the names of the desired blogs.
 * _Layout_ - Blog posts will use a specific layout template, or one of several layout templates.
 * _Path match_ - Blog posts will be some or all of the documents within a certain directory
 

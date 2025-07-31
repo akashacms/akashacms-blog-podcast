@@ -296,6 +296,14 @@ export class BlogPodcastPlugin extends akasha.Plugin {
         selector.rendersToHTML = true;
         selector.blogtag = blogtag;
 
+        // Support matching more than one blogtag
+        if (blogcfg.matchers && blogcfg.matchers.blogtags
+         && Array.isArray(blogcfg.matchers.blogtags)
+         && blogcfg.matchers.blogtags.length >= 1
+        ) {
+            selector.blogtags = blogcfg.matchers.blogtags;
+        }
+
         if (blogcfg.matchers && blogcfg.matchers.path) {
             selector.pathmatch = blogcfg.matchers.path;
         }
