@@ -146,21 +146,21 @@ export class BlogPodcastPlugin extends akasha.Plugin {
     async onSiteRendered(config) {
         const plugin = this;
         const tasks = [];
-        for (var blogkey in this.options.bloglist) {
+        for (const blogkey in this.options.bloglist) {
             if (!this.options.bloglist.hasOwnProperty(blogkey)) {
                 continue;
             }
-            var blogcfg = this.options.bloglist[blogkey];
+            const blogcfg = this.options.bloglist[blogkey];
             tasks.push({ blogkey, blogcfg });
         }
         await Promise.all(tasks.map(async data => {
             const blogkey = data.blogkey;
             const blogcfg = data.blogcfg;
             // console.log(`blog-podcast blogcfg ${util.inspect(blogcfg)}`);
-            const taskStart = new Date();
-            var documents = await plugin.findBlogDocs(config, blogcfg, blogkey);
-            var count = 0;
-            var documents2 = documents.filter(doc => {
+            const taskStart = performance.now();
+            const documents = await plugin.findBlogDocs(config, blogcfg, blogkey);
+            let count = 0;
+            const documents2 = documents.filter(doc => {
                 if (typeof blogcfg.maxEntries === "undefined"
                 || (typeof blogcfg.maxEntries !== "undefined" && count++ < blogcfg.maxEntries)) {
                     return true;
@@ -168,7 +168,7 @@ export class BlogPodcastPlugin extends akasha.Plugin {
             });
             // console.log('blog-news-river documents2 '+ util.inspect(documents2));
 
-            var rssitems = documents2.map(doc => {
+            const rssitems = documents2.map(doc => {
                 let u = new URL(config.root_url);
                 // Accommodate when root_url is something like
                 //   http://example.com/foo/bar/
@@ -189,7 +189,7 @@ export class BlogPodcastPlugin extends akasha.Plugin {
                 };
             });
 
-            var maxItems;
+            let maxItems;
             if (typeof blogcfg.maxItems === 'undefined') {
                 maxItems = 60;
             } else if (blogcfg.maxItems <= 0) {
@@ -225,7 +225,7 @@ export class BlogPodcastPlugin extends akasha.Plugin {
                 },
                 rssitems, blogcfg.rssurl);
 
-            const taskEnd = new Date();
+            const taskEnd = performance.now();
 
             console.log(`GENERATED RSS ${feed_url.toString()} rssitems # ${rssitems.length} in ${(taskEnd - taskStart) / 1000}`)
         }));
@@ -294,7 +294,6 @@ export class BlogPodcastPlugin extends akasha.Plugin {
         const selector = {};
 
         selector.rendersToHTML = true;
-        selector.blogtag = blogtag;
 
         // Support matching more than one blogtag
         if (blogcfg.matchers && blogcfg.matchers.blogtags
@@ -302,6 +301,8 @@ export class BlogPodcastPlugin extends akasha.Plugin {
          && blogcfg.matchers.blogtags.length >= 1
         ) {
             selector.blogtags = blogcfg.matchers.blogtags;
+        } else {
+            selector.blogtag = blogtag;
         }
 
         if (blogcfg.matchers && blogcfg.matchers.path) {
