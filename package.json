@@ -31,7 +31,7 @@
   "bin": {
     "akashacms-blog-podcast": "cli.mjs"
   },
-  "version": "0.9.1",
+  "version": "0.9.2",
   "engines": {
     "node": ">=24.x"
   },

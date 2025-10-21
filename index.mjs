@@ -168,7 +168,7 @@ export class BlogPodcastPlugin extends akasha.Plugin {
             });
             // console.log('blog-news-river documents2 '+ util.inspect(documents2));
 
-            const rssitems = documents2.map(doc => {
+            let rssitems = documents2.map(doc => {
                 let u = new URL(config.root_url);
                 // Accommodate when root_url is something like
                 //   http://example.com/foo/bar/
