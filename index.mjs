@@ -36,9 +36,62 @@ export class BlogPodcastPlugin extends akasha.Plugin {
 
     #config;
 
+    /**
+     * Memoized per-blogtag lookup from a (normalized) document vpath to
+     * its index within the sorted blog document array returned by
+     * findBlogDocs.  Used by BlogNextPrevElement to find a page's
+     * prev/next neighbors in O(1) instead of scanning the whole blog
+     * on every page (which is O(N) per page, O(N^2) over the blog).
+     *
+     * Keyed by blogtag.  Each entry is:
+     *   { documents: Array, index: Map<normalizedVpath, number> }
+     * where `documents` is the array the index refers into.
+     *
+     * Cleared at the start of each render via beforeSiteRendered so a
+     * full build always rebuilds from fresh data, while pages within a
+     * single build share the map.
+     */
+    #blogIndexMaps = new Map();
+
     constructor() {
         super(pluginName);
 
+    }
+
+    /**
+     * Clear the memoized blog index maps.  Called at the start of each
+     * render so stale neighbor data from a previous build is not reused.
+     */
+    beforeSiteRendered(config) {
+        this.#blogIndexMaps.clear();
+    }
+
+    /**
+     * Return a memoized lookup structure for the given blog, building it
+     * once per render from findBlogDocs (whose SQL results are themselves
+     * cached by akasharender).  The returned object has:
+     *   - documents: the sorted blog document array
+     *   - index: Map<normalizedVpath, number> into that array
+     *
+     * vpaths are pre-normalized when the map is built so the per-page
+     * lookup path performs no path.normalize() calls.
+     */
+    async getBlogDocsIndex(config, blogcfg, blogtag) {
+        const cached = this.#blogIndexMaps.get(blogtag);
+        if (cached) {
+            return cached;
+        }
+
+        const documents = await this.findBlogDocs(config, blogcfg, blogtag);
+
+        const index = new Map();
+        for (let i = 0; i < documents.length; i++) {
+            index.set(path.normalize(documents[i].vpath), i);
+        }
+
+        const entry = { documents, index };
+        this.#blogIndexMaps.set(blogtag, entry);
+        return entry;
     }
 
     configure(config, options) {
@@ -668,25 +721,22 @@ class BlogNextPrevElement extends CustomElement {
         let docpathNoSlash = metadata.document.path.startsWith('/')
                         ? metadata.document.path.substring(1)
                         : metadata.document.path;
-        let documents = await this.config
-                .plugin(pluginName)
-                .findBlogDocs(this.config, blogcfg, metadata.blogtag);
 
-        // let documents = await this.array.options.config.plugin(pluginName)
-        //        .NEWfindBlogDocs(this.array.options.config, blogcfg, metadata.blogtag);
+        // Use a memoized per-blogtag vpath -> index map so finding this
+        // page's position in the blog is O(1) instead of scanning the
+        // whole blog (O(N) per page, O(N^2) over the blog).  The map is
+        // built once per render from findBlogDocs and pre-normalizes
+        // vpaths, so the only normalization on this path is the single
+        // lookup key below.
+        const { documents, index } = await this.config
+                .plugin(pluginName)
+                .getBlogDocsIndex(this.config, blogcfg, metadata.blogtag);
 
         // console.log(`BlogNextPrevElement findBlogDocs found ${documents.length} items ${(new Date() - _start)/1000} seconds`);
-        let docIndex = -1;
-        let j = 0;
-        for (let j = 0; j < documents.length; j++) {
-            let document = documents[j];
-            // console.log(`blog-next-prev findBlogDocs blogtag ${util.inspect(metadata.blogtag)} found ${document.basedir} ${document.docpath} ${document.docfullpath} ${document.renderpath}  MATCHES? ${docpathNoSlash}  ${metadata.document.path}`);
-            // console.log(`BlogNextPrevElement ${path.normalize(document.vpath)} === ${path.normalize(docpathNoSlash)}`);
-            // console.log(`BlogNextPrevElement ${path.normalize(document.vpath)}`);
-            if (path.normalize(document.vpath) === path.normalize(docpathNoSlash)) {
-                docIndex = j;
-            }
-        }
+        const lookupKey = path.normalize(docpathNoSlash);
+        const docIndex = index.has(lookupKey)
+            ? index.get(lookupKey)
+            : -1;
         // console.log(`BlogNextPrevElement docIndex ${docIndex}`);
         if (docIndex >= 0) {
             let prevDoc = docIndex === 0
