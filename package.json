@@ -37,5 +37,8 @@
   },
   "scripts": {
     "dopublish": "npm publish --access public"
+  },
+  "dependencies": {
+    "minimatch": "^10.2.5"
   }
 }

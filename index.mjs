@@ -20,6 +20,7 @@ import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import util from 'node:util';
 import url from 'node:url';
+import { minimatch } from 'minimatch';
 import akasha, {
     Configuration,
     CustomElement,
@@ -185,7 +186,12 @@ export class BlogPodcastPlugin extends akasha.Plugin {
                 if (!info.vpath.match(cfg.matchers.path)) return false;
             }
             if (cfg.matchers.glob) {
-                if (!info.vpath.match(cfg.matchers.glob)) return false;
+                // `glob` is a shell-style glob pattern, matched against
+                // the vpath with minimatch.  This mirrors how
+                // search(selector) matches its `glob` field (SQLite
+                // GLOB against d.vpath), rather than treating the
+                // pattern as a regular expression.
+                if (!minimatch(info.vpath, cfg.matchers.glob)) return false;
             }
             if (cfg.rootPath) {
                 if (!info.renderPath.startsWith(cfg.rootPath)) return false;
@@ -346,9 +352,19 @@ export class BlogPodcastPlugin extends akasha.Plugin {
 
         const selector = {};
 
+        // A blog contains rendered HTML pages by default.  Allow the
+        // matchers to override this in case a blog is built from some
+        // other kind of document.
         selector.rendersToHTML = true;
+        if (typeof blogcfg.matchers.rendersToHTML === 'boolean') {
+            selector.rendersToHTML = blogcfg.matchers.rendersToHTML;
+        }
 
-        // Support matching more than one blogtag
+        // Support matching more than one blogtag.
+        //
+        // search(selector) recognizes the `blogtags` array field to
+        // build a pseudo-blog from the items of multiple actual blogs.
+        // When no blogtags array is given, restrict to this blog's tag.
         if (blogcfg.matchers && blogcfg.matchers.blogtags
          && Array.isArray(blogcfg.matchers.blogtags)
          && blogcfg.matchers.blogtags.length >= 1
@@ -358,12 +374,22 @@ export class BlogPodcastPlugin extends akasha.Plugin {
             selector.blogtag = blogtag;
         }
 
+        // Support both path and pathmatch with the latter
+        // being what's used in search(selector)
         if (blogcfg.matchers && blogcfg.matchers.path) {
             selector.pathmatch = blogcfg.matchers.path;
         }
+        if (blogcfg.matchers && blogcfg.matchers.pathmatch) {
+            selector.pathmatch = blogcfg.matchers.pathmatch;
+        }
 
+        // Support both renderpath and renderpathmatch with the latter
+        // being what's used in search(selector)
         if (blogcfg.matchers && blogcfg.matchers.renderpath) {
             selector.renderpathmatch = blogcfg.matchers.renderpath;
+        }
+        if (blogcfg.matchers && blogcfg.matchers.renderpathmatch) {
+            selector.renderpathmatch = blogcfg.matchers.renderpathmatch;
         }
 
         // The rootPath option is used as an alternative for selecting
@@ -397,31 +423,37 @@ export class BlogPodcastPlugin extends akasha.Plugin {
             }
         }
 
-        // This is solely about filtering for blogtag.
-        // This functionality is now handled as
-        // a search option.
-        
-        // selector.filterfunc = (config, options, doc) => {
-        //     if (doc.docMetadata
-        //      && doc.docMetadata.blogtag) {
-        //         // This could possibly be in a blog, but not in this blog
-        //         // console.log(`blog podcast filterfunc ${doc.vpath} ${util.inspect(options.blogtag)} ${util.inspect(doc?.docMetadata?.blogtag)}`);
-        //         if (Array.isArray(options.blogtags)
-        //          && !options.blogtags.includes(doc.docMetadata.blogtag)) {
-        //             // console.log(`findBlogDocs filterfunc ${doc.metaData.blogtag} not in ${util.inspect(options.blogtags)} ${doc.vpath}`);
-        //             return false;
-        //         } else if (typeof options.blogtags === 'string'
-        //          && doc.docMetadata.blogtag !== options.blogtags) {
-        //             // console.log(`findBlogDocs filterfunc ${doc.metaData.blogtag} not in ${options.blogtags} ${doc.vpath}`);
-        //             return false;
-        //         }
-        //     } else if (!doc.docMetadata || !doc.docMetadata.blogtag) {
-        //         // This cannot be in any blog
-        //         // console.log(`findBlogDocs filterfunc NOT IN ANY BLOG ${doc.vpath}`)
-        //         return false;
-        //     }
-        //     return true;
-        // };
+        // Pass through the remaining fields supported by
+        // search(selector) that have no legacy matchers equivalent.
+        // Each may be given under `matchers` (preferred, grouping all
+        // selection criteria together) or as a top-level `blogcfg`
+        // field (for consistency with rootPath/limit/offset above).
+        // The matchers value takes precedence when both are present.
+        //
+        // Only the fields recognized by
+        // DocumentsCache.buildSearchQuery / search are forwarded, so
+        // that a blog matcher can use the full search vocabulary while
+        // the legacy fields handled above keep working.
+        const passthrough = [
+            'mime',       // string | string[]
+            'parentDir',  // string
+            'dirname',    // string
+            'glob',       // string
+            'renderglob', // string
+            'skipglob',   // string
+            'tag',        // string | string[]
+            'renderers',  // string[]
+            'filterfunc'  // function
+        ];
+        for (const field of passthrough) {
+            if (typeof blogcfg[field] !== 'undefined') {
+                selector[field] = blogcfg[field];
+            }
+            if (blogcfg.matchers
+             && typeof blogcfg.matchers[field] !== 'undefined') {
+                selector[field] = blogcfg.matchers[field];
+            }
+        }
 
         let dateErrors = [];
         /* selector.sortFunc = async (a, b) => {
@@ -440,18 +472,56 @@ export class BlogPodcastPlugin extends akasha.Plugin {
             else return 1;
         }; */
 
+        // Blog entries default to being sorted by publication time,
+        // newest first.  Allow the matchers to override the sort so a
+        // blog can be ordered by any column supported by
+        // search(selector).
         selector.sortBy = 'publicationTime';
         selector.sortByDescending = true;
         selector.reverse = true;
+        if (typeof blogcfg.matchers.sortBy === 'string') {
+            selector.sortBy = blogcfg.matchers.sortBy;
+        }
+        if (typeof blogcfg.matchers.sortByDescending === 'boolean') {
+            selector.sortByDescending = blogcfg.matchers.sortByDescending;
+        }
+        if (typeof blogcfg.matchers.reverse === 'boolean') {
+            selector.reverse = blogcfg.matchers.reverse;
+        }
+        if (typeof blogcfg.matchers.sortFunc === 'function') {
+            selector.sortFunc = blogcfg.matchers.sortFunc;
+        }
 
+        // Support both maxEntries and limit
+        // limit is what's used in search(selector)
         if (typeof blogcfg.maxEntries === 'number'
          && blogcfg.maxEntries > 0) {
             selector.limit = blogcfg.maxEntries;
         }
+        if (typeof blogcfg.limit === 'number'
+         && blogcfg.limit > 0) {
+            selector.limit = blogcfg.limit;
+        }
+        if (blogcfg.matchers
+         && typeof blogcfg.matchers.limit === 'number'
+         && blogcfg.matchers.limit > 0) {
+            selector.limit = blogcfg.matchers.limit;
+        }
 
+        // Support both startAt and offset
+        // offset is what's used in search(selector)
         if (typeof blogcfg.startAt === 'number'
          && blogcfg.startAt >= 0) {
             selector.offset = blogcfg.startAt;
+        }
+        if (typeof blogcfg.offset === 'number'
+         && blogcfg.offset >= 0) {
+            selector.offset = blogcfg.offset;
+        }
+        if (blogcfg.matchers
+         && typeof blogcfg.matchers.offset === 'number'
+         && blogcfg.matchers.offset >= 0) {
+            selector.offset = blogcfg.matchers.offset;
         }
 
         // console.log(`findBlogDocs`, selector);
@@ -484,6 +554,9 @@ export class BlogPodcastPlugin extends akasha.Plugin {
      * Actually - BlogNewsIndexElement - blog-news-index,
      * which corresponds to blog-news-indexes.html.njk
      * and blog-news-indexes.html.ejs.
+     * 
+     * The only references to this function are the recursive
+     * call within the function, and in cli.mjs
      *
      * @param {*} config 
      * @param {*} blogcfg 
