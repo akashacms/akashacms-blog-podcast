@@ -154,7 +154,11 @@ The `rssurl` field lists where the RSS file is to land within the website.
 
 The `rootPath` field constrains the document search to a given subtree in the website.  Leaving this off allows any document to be included in the given blog.  If specified, this gives a directory which is the top of the tree that's searched.
 
-The `matchers` field lists options, where matching documents are included in blog.  Either or both of these options can be left out, in which case all documents are included in the blog.  Only those documents matching all the provided matcher options will be included in the blog.  The options are:
+The `matchers` field lists options, where matching documents are included in blog.  Either or both of these options can be left out, in which case all documents are included in the blog.  Only those documents matching all the provided matcher options will be included in the blog. 
+
+The `matchers` field has existed in AkashaCMS for a long time.  More recently, with the SQLite3-based caching in AkashaRender, the `search(selector)` function allows us to define a _Document Group_ using a selector object.  This plugin converts the `matchers` object into the `search(selector)` object in order to retrieve the documents associated with this blog.
+
+As of version `0.10`, the `matchers` field is now a superset of the `search(selector)` object.  The additional fields are mapped to the `search(selector)` field.  There is no functional difference, but the additional fields are supported for backwards compatibility.
 
 * `layouts` Lists one-or-more layout templates.  Presumably one will define a _blog_ template and match on that as shown here.  As the construct implies, you can list several templates in a comma-separated list.  Hence, the `layout` metadata value is used not only to determine the page layout, but to select that this content file is in the blog.
 * `path` Is a regular expression to match against the file path.  It's of course another way to get the same effect as the `rootPath` option
@@ -165,12 +169,9 @@ The RSS file will contain those documents, using a short prefix of each document
 
 # BlogPodcast matchers define the collection of documents in a given Blog
 
-The characteristics of a given BlogPodcast is described in its entry in the `bloglist` object.  The `matchers` field, as well as the `blogtag`, are used to select the document collection for the blog.
+The `matchers` field now, as of the 0.10 time frame, the same shape/features as the Akasharender `search(selector)` object.
 
-* _Regular expression match of path name_ -  The `matchers.path` tag takes a regular expression to match the `vpath`.  The `matchers.renderpath` tag takes a regular expression to match the `renderPath`.
-* _SQL LIKE against renderPath_ - The `rootPath` tag simply takes a prefix string used to match the `renderPath`.  With the SQLITE3 cache, the WHERE clause is `renderPath LIKE '${rootPath}%'`.
-* _Match the layout template file_ - The `layouts` tag can be either a single string, or an array of strings, to match against layout templates.  The blog post will have its `layout` frontmatter tag, it can be in or out of a given blog by matching the templates named in the `layouts` tag.
-* _Blogtag_ -- This is not part of the `matchers` but is the tag for the entry in `bloglist`.  This tag is matched against the `blogtag` entry in the frontmatter.
+The purpose is to define the documents contained in the blogs document group.
 
 # Custom tags and Layouts
 
@@ -196,6 +197,8 @@ The `teaser` is what's output in the RSS feed.
 
 ## Blog post page
 
+It is required that a blog post document contain a blogtag field in the frontmatter, as shown in the previous section.
+
 The `blog.html.ejs` template (https://github.com/akashacms/akashacms-blog-skeleton/blob/akasharender/layouts/blog.html.ejs) is meant for formatting a single blog post.  It's a fairly normal page layout but with a couple additions.
 
 ```html
@@ -205,11 +208,6 @@ The `blog.html.ejs` template (https://github.com/akashacms/akashacms-blog-skelet
   </section>
 </div>
 ```
-```html
-<partial file-name='disqus.html'></partial>
-```
-
-It's common in blogs to allow readers to leave comments.  AkashaCMS doesn't support commenting natively, however Disqus is a fine system that supports commenting on any kind of website.
 
 It's useful (perhaps) to organize the content documents in a directory structure, where the hierarchy has useful meaning.  In such a case, the `akashacms-breadcrumbs` plugin can give you a useful breadcrumb trail.
 
@@ -251,6 +249,7 @@ As the name of this tag implies, it produces the River of News format (by defaul
 * `maxentries` Controls the maximum number of blog entries to show on the index page.
 * `template` Changes the template to use.  By default this is `blog-news-river.html.ejs`.  If you want to change the layout, you can either override this template, or you can specify a template using this attribute.
 * `doc-root-path` Overrides the `matchers.rootPath` setting in the blog configuration, so that the index is generated relative to the current directory.
+* `blogtag` identifies the blog in question
 
 The `doc-root-path` parameter is useful for generating sub-indexes of a blog covering just the local directory hierarchy.  Consider dividing the posts of a blog into a directory hierarchy like:
 
